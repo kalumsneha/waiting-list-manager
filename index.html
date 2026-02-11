@@ -4,20 +4,22 @@
 <meta charset="UTF-8" />
 <title>FIFO Waiting List Manager</title>
 <style>
-    body { font-family: Arial, sans-serif; background:#f4f6f8; margin:0; padding:20px; }
-    h2 { text-align:center; }
-    .controls, .limit-controls { max-width:900px; margin:15px auto; display:flex; gap:10px; }
-    input { flex:1; padding:10px; border-radius:6px; border:1px solid #ccc; }
-    button { padding:10px 15px; border-radius:6px; border:none; cursor:pointer; background:#1976d2; color:white; font-weight:bold; }
-    button:hover { background:#125aa0; }
-    .container { display:flex; gap:20px; max-width:900px; margin:auto; }
-    .panel { flex:1; background:white; padding:15px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
-    .panel h3 { text-align:center; margin-top:0; }
-    .list { min-height:300px; border:2px dashed #ccc; border-radius:8px; padding:10px; }
-    .item { display:flex; justify-content:space-between; align-items:center; background:#e3f2fd; margin:6px 0; padding:8px 10px; border-radius:6px; }
-    .item.incourt { background:#c8e6c9; }
-    .arrow { cursor:pointer; font-size:18px; user-select:none; padding-left:10px; }
-    .disabled { opacity:0.4; pointer-events:none; }
+body{font-family:Arial,sans-serif;background:#f4f6f8;margin:0;padding:20px}
+h2{text-align:center}
+.controls,.limit-controls{max-width:900px;margin:15px auto;display:flex;gap:10px}
+input{flex:1;padding:10px;border-radius:6px;border:1px solid #ccc}
+button{padding:10px 15px;border-radius:6px;border:none;cursor:pointer;background:#1976d2;color:white;font-weight:bold}
+button:hover{background:#125aa0}
+.container{display:flex;gap:20px;max-width:900px;margin:auto}
+.panel{flex:1;background:white;padding:15px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.1)}
+.panel h3{text-align:center;margin-top:0}
+.list{min-height:300px;border:2px dashed #ccc;border-radius:8px;padding:10px}
+.item{display:flex;justify-content:space-between;align-items:center;background:#e3f2fd;margin:6px 0;padding:8px 10px;border-radius:6px}
+.item.incourt{background:#c8e6c9}
+.arrow{cursor:pointer;font-size:18px;user-select:none;padding-left:10px}
+.disabled{opacity:.4;pointer-events:none}
+.stats{font-size:12px;opacity:.7;margin-left:6px}
+.actions{display:flex;align-items:center;gap:6px}
 </style>
 </head>
 <body>
@@ -25,119 +27,98 @@
 <h2>🏸 FIFO Waiting List Manager</h2>
 
 <div class="limit-controls">
-    <input type="number" id="maxInCourt" placeholder="Max in-court players" min="1" />
-    <button onclick="setLimit()">Set Limit</button>
+<input type="number" id="maxInCourt" placeholder="Max in-court players" min="1" />
+<button onclick="setLimit()">Set Limit</button>
 </div>
 
 <div class="controls">
-    <input type="text" id="nameInput" placeholder="Enter names (comma separated)" />
-    <button onclick="addToWaitingList()">Add to Waiting List</button>
+<input type="text" id="nameInput" placeholder="Enter names (comma separated)" />
+<button onclick="addToWaitingList()">Add to Waiting List</button>
 </div>
 
 <div class="container">
-    <div class="panel">
-        <h3>⏳ Waiting List (FIFO)</h3>
-        <div id="waitingList" class="list"></div>
-    </div>
+<div class="panel">
+<h3>⏳ Waiting List (FIFO)</h3>
+<div id="waitingList" class="list"></div>
+</div>
 
-    <div class="panel">
-        <h3>🏟️ In-Court List</h3>
-        <div id="inCourtList" class="list"></div>
-    </div>
+<div class="panel">
+<h3>🏟️ In-Court List</h3>
+<div id="inCourtList" class="list"></div>
+</div>
 </div>
 
 <script>
-let state = {
-    waiting: [],
-    incourt: [],
-    maxInCourt: Infinity
-};
+let state={waiting:[],incourt:[],maxInCourt:Infinity,stats:{}};
 
-if(localStorage.getItem('fifoState')){
-    state = JSON.parse(localStorage.getItem('fifoState'));
-}
+if(localStorage.getItem('fifoState')) state=JSON.parse(localStorage.getItem('fifoState'));
 
-function save(){ localStorage.setItem('fifoState', JSON.stringify(state)); }
+function save(){localStorage.setItem('fifoState',JSON.stringify(state));}
 
-function setLimit(){
-    const val = parseInt(document.getElementById('maxInCourt').value);
-    if(!isNaN(val) && val > 0){
-        state.maxInCourt = val;
-        save();
-        render();
-    }
-}
+function setLimit(){const v=parseInt(document.getElementById('maxInCourt').value);if(!isNaN(v)&&v>0){state.maxInCourt=v;save();render();}}
 
 function render(){
-    const waitingDiv = document.getElementById('waitingList');
-    const incourtDiv = document.getElementById('inCourtList');
+const w=document.getElementById('waitingList');
+const c=document.getElementById('inCourtList');
+w.innerHTML='';c.innerHTML='';
 
-    waitingDiv.innerHTML = '';
-    incourtDiv.innerHTML = '';
+state.waiting.forEach((name,i)=>{
+const div=document.createElement('div');div.className='item';
+const stats=state.stats[name]||0;
+const arrow=document.createElement('span');arrow.className='arrow';arrow.innerHTML='➡️';
+if(i!==0||state.incourt.length>=state.maxInCourt)arrow.classList.add('disabled');
+arrow.onclick=()=>moveToInCourt(i);
 
-    state.waiting.forEach((name, i) => {
-        const div = document.createElement('div');
-        div.className = 'item';
-        const arrow = document.createElement('span');
-        arrow.className = 'arrow';
-        arrow.innerHTML = '➡️';
+div.innerHTML=`<span>${name}<span class='stats'>(games: ${stats})</span></span>`;
+div.appendChild(arrow);w.appendChild(div);
+});
 
-        // Only first in FIFO can move to in-court
-        if(i !== 0 || state.incourt.length >= state.maxInCourt){
-            arrow.classList.add('disabled');
-        }
+state.incourt.forEach((p,i)=>{
+const div=document.createElement('div');div.className='item incourt';
+const actions=document.createElement('div');actions.className='actions';
 
-        arrow.onclick = () => moveToInCourt(i);
-        div.innerHTML = `<span>${name}</span>`;
-        div.appendChild(arrow);
-        waitingDiv.appendChild(div);
-    });
+const stay=document.createElement('span');stay.className='arrow';stay.innerHTML='🔄';
+if(p.extraUsed)stay.classList.add('disabled');
+stay.onclick=()=>stayOneMore(i);
 
-    state.incourt.forEach((name, i) => {
-        const div = document.createElement('div');
-        div.className = 'item incourt';
-        const arrow = document.createElement('span');
-        arrow.className = 'arrow';
-        arrow.innerHTML = '⬅️';
-        arrow.onclick = () => moveToWaiting(i);
-        div.innerHTML = `<span>${name}</span>`;
-        div.appendChild(arrow);
-        incourtDiv.appendChild(div);
-    });
+const back=document.createElement('span');back.className='arrow';back.innerHTML='⬅️';
+back.onclick=()=>moveToWaiting(i);
+
+actions.appendChild(stay);actions.appendChild(back);
+
+div.innerHTML=`<span>${p.name}</span>`;
+div.appendChild(actions);c.appendChild(div);
+});
 }
 
 function addToWaitingList(){
-    const input = document.getElementById('nameInput');
-    const raw = input.value.trim();
-    if(!raw) return;
-
-    const names = raw.split(',').map(n => n.trim()).filter(n => n.length > 0);
-    names.forEach(n => state.waiting.push(n)); // FIFO append
-
-    input.value = '';
-    save();
-    render();
-}
+const input=document.getElementById('nameInput');
+const raw=input.value.trim();if(!raw)return;
+const names=raw.split(',').map(n=>n.trim()).filter(n=>n);
+names.forEach(n=>{state.waiting.push(n);if(!state.stats[n])state.stats[n]=0;});
+input.value='';save();render();}
 
 function moveToInCourt(index){
-    if(index !== 0) return; // FIFO enforcement
-    if(state.incourt.length >= state.maxInCourt) return; // limit enforcement
+if(index!==0)return;
+if(state.incourt.length>=state.maxInCourt)return;
+const name=state.waiting.shift();
+state.stats[name]=(state.stats[name]||0)+1; // game count
+state.incourt.push({name:name,extraUsed:false});
+save();render();}
 
-    const name = state.waiting.shift(); // pop FIFO
-    state.incourt.push(name);
-    save();
-    render();
-}
+function stayOneMore(i){
+const p=state.incourt[i];
+if(p.extraUsed)return;
+p.extraUsed=true;
+state.stats[p.name]=(state.stats[p.name]||0)+1; // extra game
+save();render();}
 
-function moveToWaiting(index){
-    const name = state.incourt.splice(index,1)[0];
-    state.waiting.push(name); // goes to end of FIFO
-    save();
-    render();
-}
+function moveToWaiting(i){
+const p=state.incourt.splice(i,1)[0];
+state.waiting.push(p.name);
+save();render();}
 
 render();
 </script>
-
 </body>
 </html>
