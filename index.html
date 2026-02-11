@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>FIFO Waiting List Manager</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f4f6f8;
+        margin: 0;
+        padding: 20px;
+    }
+    h2 { text-align: center; }
+    .container {
+        display: flex;
+        gap: 20px;
+        max-width: 900px;
+        margin: auto;
+    }
+    .panel {
+        flex: 1;
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .panel h3 {
+        text-align: center;
+        margin-top: 0;
+    }
+    .list {
+        min-height: 300px;
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 10px;
+    }
+    .item {
+        background: #e3f2fd;
+        margin: 6px 0;
+        padding: 8px 10px;
+        border-radius: 6px;
+        cursor: grab;
+        user-select: none;
+    }
+    .item.incourt {
+        background: #c8e6c9;
+    }
+    .controls {
+        max-width: 900px;
+        margin: 15px auto;
+        display: flex;
+        gap: 10px;
+    }
+    input {
+        flex: 1;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+    }
+    button {
+        padding: 10px 15px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        background: #1976d2;
+        color: white;
+        font-weight: bold;
+    }
+    button:hover { background: #125aa0; }
+</style>
+</head>
+<body>
+
+<h2>🏸 FIFO Waiting List Manager</h2>
+
+<div class="controls">
+    <input type="text" id="nameInput" placeholder="Enter player name" />
+    <button onclick="addToWaitingList()">Add to Waiting List</button>
+</div>
+
+<div class="container">
+    <div class="panel">
+        <h3>⏳ Waiting List (FIFO)</h3>
+        <div id="waitingList" class="list" ondragover="allowDrop(event)" ondrop="drop(event, 'waiting')"></div>
+    </div>
+
+    <div class="panel">
+        <h3>🏟️ In-Court List</h3>
+        <div id="inCourtList" class="list" ondragover="allowDrop(event)" ondrop="drop(event, 'incourt')"></div>
+    </div>
+</div>
+
+<script>
+let state = {
+    waiting: [],
+    incourt: []
+};
+
+// Load from browser memory
+if(localStorage.getItem('fifoState')){
+    state = JSON.parse(localStorage.getItem('fifoState'));
+}
+
+function save(){
+    localStorage.setItem('fifoState', JSON.stringify(state));
+}
+
+function render(){
+    const waitingDiv = document.getElementById('waitingList');
+    const incourtDiv = document.getElementById('inCourtList');
+
+    waitingDiv.innerHTML = '';
+    incourtDiv.innerHTML = '';
+
+    state.waiting.forEach((name, i) => {
+        const el = createItem(name, 'waiting', i);
+        waitingDiv.appendChild(el);
+    });
+
+    state.incourt.forEach((name, i) => {
+        const el = createItem(name, 'incourt', i);
+        incourtDiv.appendChild(el);
+    });
+}
+
+function createItem(name, list, index){
+    const div = document.createElement('div');
+    div.className = 'item ' + (list === 'incourt' ? 'incourt' : '');
+    div.textContent = name;
+    div.draggable = true;
+    div.ondragstart = (e) => {
+        e.dataTransfer.setData('text/plain', JSON.stringify({name, list, index}));
+    };
+    return div;
+}
+
+function addToWaitingList(){
+    const input = document.getElementById('nameInput');
+    const name = input.value.trim();
+    if(!name) return;
+
+    state.waiting.push(name); // FIFO append
+    input.value = '';
+    save();
+    render();
+}
+
+function allowDrop(e){ e.preventDefault(); }
+
+function drop(e, targetList){
+    e.preventDefault();
+    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+
+    // remove from original
+    state[data.list].splice(data.index, 1);
+
+    // FIFO rule: waiting list always append
+    if(targetList === 'waiting'){
+        state.waiting.push(data.name);
+    } else {
+        state.incourt.push(data.name);
+    }
+
+    save();
+    render();
+}
+
+render();
+</script>
+
+</body>
+</html>
