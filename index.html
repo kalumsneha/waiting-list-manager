@@ -4,105 +4,68 @@
 <meta charset="UTF-8" />
 <title>FIFO Waiting List Manager</title>
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #f4f6f8;
-        margin: 0;
-        padding: 20px;
-    }
-    h2 { text-align: center; }
-    .container {
-        display: flex;
-        gap: 20px;
-        max-width: 900px;
-        margin: auto;
-    }
-    .panel {
-        flex: 1;
-        background: white;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-    .panel h3 {
-        text-align: center;
-        margin-top: 0;
-    }
-    .list {
-        min-height: 300px;
-        border: 2px dashed #ccc;
-        border-radius: 8px;
-        padding: 10px;
-    }
-    .item {
-        background: #e3f2fd;
-        margin: 6px 0;
-        padding: 8px 10px;
-        border-radius: 6px;
-        cursor: grab;
-        user-select: none;
-    }
-    .item.incourt {
-        background: #c8e6c9;
-    }
-    .controls {
-        max-width: 900px;
-        margin: 15px auto;
-        display: flex;
-        gap: 10px;
-    }
-    input {
-        flex: 1;
-        padding: 10px;
-        border-radius: 6px;
-        border: 1px solid #ccc;
-    }
-    button {
-        padding: 10px 15px;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        background: #1976d2;
-        color: white;
-        font-weight: bold;
-    }
-    button:hover { background: #125aa0; }
+    body { font-family: Arial, sans-serif; background:#f4f6f8; margin:0; padding:20px; }
+    h2 { text-align:center; }
+    .controls, .limit-controls { max-width:900px; margin:15px auto; display:flex; gap:10px; }
+    input { flex:1; padding:10px; border-radius:6px; border:1px solid #ccc; }
+    button { padding:10px 15px; border-radius:6px; border:none; cursor:pointer; background:#1976d2; color:white; font-weight:bold; }
+    button:hover { background:#125aa0; }
+    .container { display:flex; gap:20px; max-width:900px; margin:auto; }
+    .panel { flex:1; background:white; padding:15px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+    .panel h3 { text-align:center; margin-top:0; }
+    .list { min-height:300px; border:2px dashed #ccc; border-radius:8px; padding:10px; }
+    .item { display:flex; justify-content:space-between; align-items:center; background:#e3f2fd; margin:6px 0; padding:8px 10px; border-radius:6px; }
+    .item.incourt { background:#c8e6c9; }
+    .arrow { cursor:pointer; font-size:18px; user-select:none; padding-left:10px; }
+    .disabled { opacity:0.4; pointer-events:none; }
 </style>
 </head>
 <body>
 
 <h2>🏸 FIFO Waiting List Manager</h2>
 
+<div class="limit-controls">
+    <input type="number" id="maxInCourt" placeholder="Max in-court players" min="1" />
+    <button onclick="setLimit()">Set Limit</button>
+</div>
+
 <div class="controls">
-    <input type="text" id="nameInput" placeholder="Enter player name" />
+    <input type="text" id="nameInput" placeholder="Enter names (comma separated)" />
     <button onclick="addToWaitingList()">Add to Waiting List</button>
 </div>
 
 <div class="container">
     <div class="panel">
         <h3>⏳ Waiting List (FIFO)</h3>
-        <div id="waitingList" class="list" ondragover="allowDrop(event)" ondrop="drop(event, 'waiting')"></div>
+        <div id="waitingList" class="list"></div>
     </div>
 
     <div class="panel">
         <h3>🏟️ In-Court List</h3>
-        <div id="inCourtList" class="list" ondragover="allowDrop(event)" ondrop="drop(event, 'incourt')"></div>
+        <div id="inCourtList" class="list"></div>
     </div>
 </div>
 
 <script>
 let state = {
     waiting: [],
-    incourt: []
+    incourt: [],
+    maxInCourt: Infinity
 };
 
-// Load from browser memory
 if(localStorage.getItem('fifoState')){
     state = JSON.parse(localStorage.getItem('fifoState'));
 }
 
-function save(){
-    localStorage.setItem('fifoState', JSON.stringify(state));
+function save(){ localStorage.setItem('fifoState', JSON.stringify(state)); }
+
+function setLimit(){
+    const val = parseInt(document.getElementById('maxInCourt').value);
+    if(!isNaN(val) && val > 0){
+        state.maxInCourt = val;
+        save();
+        render();
+    }
 }
 
 function render(){
@@ -113,54 +76,62 @@ function render(){
     incourtDiv.innerHTML = '';
 
     state.waiting.forEach((name, i) => {
-        const el = createItem(name, 'waiting', i);
-        waitingDiv.appendChild(el);
+        const div = document.createElement('div');
+        div.className = 'item';
+        const arrow = document.createElement('span');
+        arrow.className = 'arrow';
+        arrow.innerHTML = '➡️';
+
+        // Only first in FIFO can move to in-court
+        if(i !== 0 || state.incourt.length >= state.maxInCourt){
+            arrow.classList.add('disabled');
+        }
+
+        arrow.onclick = () => moveToInCourt(i);
+        div.innerHTML = `<span>${name}</span>`;
+        div.appendChild(arrow);
+        waitingDiv.appendChild(div);
     });
 
     state.incourt.forEach((name, i) => {
-        const el = createItem(name, 'incourt', i);
-        incourtDiv.appendChild(el);
+        const div = document.createElement('div');
+        div.className = 'item incourt';
+        const arrow = document.createElement('span');
+        arrow.className = 'arrow';
+        arrow.innerHTML = '⬅️';
+        arrow.onclick = () => moveToWaiting(i);
+        div.innerHTML = `<span>${name}</span>`;
+        div.appendChild(arrow);
+        incourtDiv.appendChild(div);
     });
-}
-
-function createItem(name, list, index){
-    const div = document.createElement('div');
-    div.className = 'item ' + (list === 'incourt' ? 'incourt' : '');
-    div.textContent = name;
-    div.draggable = true;
-    div.ondragstart = (e) => {
-        e.dataTransfer.setData('text/plain', JSON.stringify({name, list, index}));
-    };
-    return div;
 }
 
 function addToWaitingList(){
     const input = document.getElementById('nameInput');
-    const name = input.value.trim();
-    if(!name) return;
+    const raw = input.value.trim();
+    if(!raw) return;
 
-    state.waiting.push(name); // FIFO append
+    const names = raw.split(',').map(n => n.trim()).filter(n => n.length > 0);
+    names.forEach(n => state.waiting.push(n)); // FIFO append
+
     input.value = '';
     save();
     render();
 }
 
-function allowDrop(e){ e.preventDefault(); }
+function moveToInCourt(index){
+    if(index !== 0) return; // FIFO enforcement
+    if(state.incourt.length >= state.maxInCourt) return; // limit enforcement
 
-function drop(e, targetList){
-    e.preventDefault();
-    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+    const name = state.waiting.shift(); // pop FIFO
+    state.incourt.push(name);
+    save();
+    render();
+}
 
-    // remove from original
-    state[data.list].splice(data.index, 1);
-
-    // FIFO rule: waiting list always append
-    if(targetList === 'waiting'){
-        state.waiting.push(data.name);
-    } else {
-        state.incourt.push(data.name);
-    }
-
+function moveToWaiting(index){
+    const name = state.incourt.splice(index,1)[0];
+    state.waiting.push(name); // goes to end of FIFO
     save();
     render();
 }
