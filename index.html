@@ -93,10 +93,19 @@ div.appendChild(actions);c.appendChild(div);
 
 function addToWaitingList(){
 const input=document.getElementById('nameInput');
-const raw=input.value.trim();if(!raw)return;
-const names=raw.split(',').map(n=>n.trim()).filter(n=>n);
-names.forEach(n=>{state.waiting.push(n);if(!state.stats[n])state.stats[n]=0;});
-input.value='';save();render();}
+const raw=input.value;
+if(!raw || raw.trim()==='') return;
+
+const names=raw.split(',').map(n=>n.trim()).filter(n=>n.length>0);
+names.forEach(n=>{
+    state.waiting.push(n);
+    if(!state.stats[n]) state.stats[n]=0;
+});
+
+input.value='';
+save();
+render();
+}
 
 function moveToInCourt(index){
 if(index!==0)return;
