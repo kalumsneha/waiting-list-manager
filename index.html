@@ -77,9 +77,12 @@ let state = {
 stateRef.on("value", snap=>{
   if(snap.exists()){
     state = snap.val();
-    render();
+  } else {
+    save(); // create initial state in Firebase
   }
+  render();
 });
+
 
 function save(){
   stateRef.set(state);
