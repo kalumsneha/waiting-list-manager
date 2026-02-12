@@ -7,7 +7,7 @@
 body{font-family:Arial,sans-serif;background:#f4f6f8;margin:0;padding:20px}
 h2{text-align:center}
 .controls,.limit-controls{max-width:900px;margin:15px auto;display:flex;gap:10px}
-input{flex:1;padding:10px;border-radius:6px;border:1px solid #ccc}
+input,select{flex:1;padding:10px;border-radius:6px;border:1px solid #ccc}
 button{padding:10px 15px;border-radius:6px;border:none;cursor:pointer;background:#1976d2;color:white;font-weight:bold}
 button:hover{background:#125aa0}
 .container{display:flex;gap:20px;max-width:900px;margin:auto}
@@ -24,7 +24,6 @@ button:hover{background:#125aa0}
 .toast.show { opacity: 1; }
 </style>
 </head>
-
 <body>
 
 <h2>🏸 FIFO Waiting List Manager</h2>
@@ -35,8 +34,10 @@ button:hover{background:#125aa0}
 </div>
 
 <div class="controls">
-<input type="text" id="nameInput" placeholder="Enter names (comma separated)" />
-<button onclick="addToWaitingList()">Add to Waiting List</button>
+<select id="playerSelect" multiple></select>
+<input type="text" id="nameInput" placeholder="Enter new names (comma separated)" />
+<button onclick="addSelectedOrNewPlayers()">Add Players</button>
+<button onclick="clearCourt()">Clear Court</button>
 </div>
 
 <div class="container">
@@ -57,14 +58,11 @@ button:hover{background:#125aa0}
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-<script src="firebase-config.js"></script> <!-- this file is created during build -->
+<script src="firebase-config.js"></script>
 
 <script>
 const firebaseConfig = window.FIREBASE_CONFIG;
-if (!firebaseConfig) {
-  console.error("Firebase config is missing!");
-}
-
+if (!firebaseConfig) console.error("Firebase config is missing!");
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const stateRef = db.ref("fifoState");
@@ -74,7 +72,7 @@ const stateRef = db.ref("fifoState");
 let state = {
   waiting: [],
   incourt: [],
-  maxInCourt: null,   // 🔥 FIXED (no Infinity in Firebase)
+  maxInCourt: null,
   stats: {}
 };
 
@@ -91,13 +89,11 @@ let initialized = false;
 
 /* ---- Initial load ---- */
 stateRef.once("value").then(snap=>{
-  if(snap.exists()){
-    state = normalizeState(snap.val());
-  } else {
-    state = normalizeState({});
-    stateRef.set(state);
-  }
+  if(snap.exists()) state = normalizeState(snap.val());
+  else stateRef.set(state);
+
   initialized = true;
+  updatePlayerSelect();
   render();
 });
 
@@ -106,21 +102,23 @@ stateRef.on("value", snap=>{
   if(!initialized) return;
   if(snap.exists()){
     state = normalizeState(snap.val());
+    updatePlayerSelect();
     render();
   }
 });
 
 /* ---- Save ---- */
 function save(){
-  stateRef.set(state)
-    .then(()=>console.log("✅ Firebase saved"))
-    .catch(e=>console.error("❌ Firebase error:", e));
+  stateRef.set(state).then(()=>{
+    console.log("✅ Firebase saved");
+    updatePlayerSelect();
+  }).catch(e=>console.error("❌ Firebase error:", e));
 }
 
 /* ---- UI Logic ---- */
 function setLimit(){
   const val = parseInt(document.getElementById('maxInCourt').value);
-  if(!isNaN(val) && val > 0){
+  if(!isNaN(val) && val>0){
     state.maxInCourt = val;
     save();
   }
@@ -130,7 +128,53 @@ function showToast(msg){
   const t=document.getElementById('toast');
   t.innerText=msg;
   t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 2000);
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+function updatePlayerSelect(){
+  const select = document.getElementById('playerSelect');
+  select.innerHTML = '';
+  Object.keys(state.stats).forEach(name=>{
+    const option = document.createElement('option');
+    option.value = name;
+    option.innerText = name;
+    select.appendChild(option);
+  });
+}
+
+function addSelectedOrNewPlayers(){
+  const select = document.getElementById('playerSelect');
+  const selected = Array.from(select.selectedOptions).map(opt => opt.value);
+
+  const input = document.getElementById('nameInput');
+  const rawNames = input.value.split(',').map(n=>n.trim()).filter(n=>n.length>0);
+
+  const allNames = [...new Set([...selected,...rawNames])];
+
+  allNames.forEach(n=>{
+    const inWaiting = state.waiting.includes(n);
+    const inCourt = state.incourt.some(p=>p.name===n);
+    if(inWaiting || inCourt){ showToast(`${n} already exists`); return; }
+
+    state.waiting.push(n);
+    if(!state.stats[n]) state.stats[n] = 0;
+  });
+
+  input.value='';
+  save();
+  render();
+  showToast(`${allNames.length} players processed`);
+}
+
+function clearCourt(){
+  const allPlayers = [...state.waiting,...state.incourt.map(p=>p.name)];
+  state.waiting = [];
+  state.incourt = [];
+  Object.keys(state.stats).forEach(name => state.stats[name]=0);
+
+  save();
+  render();
+  showToast(`Cleared ${allPlayers.length} players and reset stats`);
 }
 
 function render(){
@@ -140,7 +184,6 @@ function render(){
   waitingDiv.innerHTML='';
   incourtDiv.innerHTML='';
 
-  /* Waiting list */
   state.waiting.forEach((name,i)=>{
     const div=document.createElement('div');
     div.className='item';
@@ -161,7 +204,6 @@ function render(){
     waitingDiv.appendChild(div);
   });
 
-  /* In-court list */
   state.incourt.forEach((p,i)=>{
     const div=document.createElement('div');
     div.className='item incourt';
@@ -189,28 +231,7 @@ function render(){
   });
 }
 
-/* ---- Actions ---- */
-function addToWaitingList(){
-  const input=document.getElementById('nameInput');
-  const raw=input.value;
-  if(!raw||raw.trim()==='') return;
-
-  const names=raw.split(',').map(n=>n.trim()).filter(n=>n.length>0);
-
-  names.forEach(n=>{
-    // prevent duplicates in waiting or incourt
-    const inWaiting = state.waiting.includes(n);
-    const inCourt = state.incourt.some(p=>p.name===n);
-    
-    if(inWaiting||inCourt){ showToast(`${n} already exists`); return; }// skip duplicates
-    
-    state.waiting.push(n);
-    if(!state.stats[n]) state.stats[n]=0;
-  });
-
-  input.value='';
-  save();
-}
+function addToWaitingList(){ addSelectedOrNewPlayers(); }
 
 function moveToInCourt(index){
   if(index!==0) return;
