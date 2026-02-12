@@ -125,6 +125,13 @@ function setLimit(){
   }
 }
 
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.innerText=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2000);
+}
+
 function render(){
   const waitingDiv = document.getElementById('waitingList');
   const incourtDiv = document.getElementById('inCourtList');
@@ -194,7 +201,7 @@ function addToWaitingList(){
     const inWaiting = state.waiting.includes(n);
     const inCourt = state.incourt.some(p=>p.name===n);
     
-    if(inWaiting || inCourt) return; // skip duplicates
+    if(inWaiting||inCourt){ showToast(`${n} already exists`); return; }// skip duplicates
     
     state.waiting.push(n);
     if(!state.stats[n]) state.stats[n]=0;
