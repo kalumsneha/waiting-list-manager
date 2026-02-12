@@ -188,7 +188,14 @@ function addToWaitingList(){
   if(!raw||raw.trim()==='') return;
 
   const names=raw.split(',').map(n=>n.trim()).filter(n=>n.length>0);
+
   names.forEach(n=>{
+    // prevent duplicates in waiting or incourt
+    const inWaiting = state.waiting.includes(n);
+    const inCourt = state.incourt.some(p=>p.name===n);
+    
+    if(inWaiting || inCourt) return; // skip duplicates
+    
     state.waiting.push(n);
     if(!state.stats[n]) state.stats[n]=0;
   });
