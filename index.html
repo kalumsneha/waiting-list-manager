@@ -48,6 +48,24 @@
     </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyD963zVhunlASDiItt4VpDfazRyam7_MJU",
+      authDomain: "waiting-list-manager.firebaseapp.com",
+      databaseURL: "https://waiting-list-manager-default-rtdb.firebaseio.com",
+      projectId: "waiting-list-manager",
+      storageBucket: "waiting-list-manager.firebasestorage.app",
+      messagingSenderId: "286480324159",
+      appId: "1:286480324159:web:f184b96aab8ccff19b0a8a"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const stateRef = db.ref("fifoState");
+</script>
+
 <script>
 let state = {
     waiting: [],
@@ -56,11 +74,16 @@ let state = {
     stats: {}
 };
 
-if(localStorage.getItem('fifoState')){
-    state = JSON.parse(localStorage.getItem('fifoState'));
-}
+stateRef.on("value", snap=>{
+  if(snap.exists()){
+    state = snap.val();
+    render();
+  }
+});
 
-function save(){ localStorage.setItem('fifoState', JSON.stringify(state)); }
+function save(){
+  stateRef.set(state);
+}
 
 function setLimit(){
     const val = parseInt(document.getElementById('maxInCourt').value);
