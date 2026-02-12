@@ -74,13 +74,26 @@ let state = {
     stats: {}
 };
 
-stateRef.on("value", snap=>{
+stateRef.once("value").then(snap=>{
   if(snap.exists()){
     state = snap.val();
   } else {
-    save(); // create initial state in Firebase
+    state = {
+      waiting: [],
+      incourt: [],
+      maxInCourt: Infinity,
+      stats: {}
+    };
+    stateRef.set(state); // create initial state ONLY ONCE
   }
   render();
+});
+
+stateRef.on("value", snap=>{
+  if(snap.exists()){
+    state = snap.val();
+    render();
+  }
 });
 
 
