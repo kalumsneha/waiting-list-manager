@@ -77,14 +77,24 @@ let state = {
   stats: {}
 };
 
+function normalizeState(s){
+  return {
+    waiting: Array.isArray(s.waiting) ? s.waiting : [],
+    incourt: Array.isArray(s.incourt) ? s.incourt : [],
+    maxInCourt: (s.maxInCourt === undefined ? null : s.maxInCourt),
+    stats: (typeof s.stats === 'object' && s.stats !== null ? s.stats : {})
+  };
+}
+
 let initialized = false;
 
 /* ---- Initial load ---- */
 stateRef.once("value").then(snap=>{
   if(snap.exists()){
-    state = snap.val();
+    state = normalizeState(snap.val());
   } else {
-    stateRef.set(state); // create initial state
+    state = normalizeState({});
+    stateRef.set(state);
   }
   initialized = true;
   render();
@@ -94,7 +104,7 @@ stateRef.once("value").then(snap=>{
 stateRef.on("value", snap=>{
   if(!initialized) return;
   if(snap.exists()){
-    state = snap.val();
+    state = normalizeState(snap.val());
     render();
   }
 });
