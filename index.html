@@ -327,19 +327,35 @@ function render(){
   });
 
   state.incourt.forEach((p,i)=>{
-    const d=document.createElement('div');d.className='item incourt';
-    const a=document.createElement('div');a.className='actions';
-
+    const d=document.createElement('div'); 
+    d.className='item incourt';
+  
+    const a=document.createElement('div'); 
+    a.className='actions';
+  
+    /* ---- STAY BUTTON ---- */
+    const stay=document.createElement('div');
+    stay.className='icon-btn btn-stay';
+    stay.innerHTML='<span class="material-icons">refresh</span>';
+  
+    if(p.extraUsed) stay.classList.add('icon-disabled');
+  
+    stay.onclick=()=>stayOneMore(i);
+  
+    /* ---- BACK BUTTON ---- */
     const back=document.createElement('div');
     back.className='icon-btn btn-back';
     back.innerHTML='<span class="material-icons">arrow_back</span>';
     back.onclick=()=>moveToWaiting(i);
-
+  
+    a.appendChild(stay);
     a.appendChild(back);
+  
     d.innerHTML=`<span>${p.name}</span>`;
     d.appendChild(a);
     inCourtList.appendChild(d);
   });
+
 }
 
 function getPrioritizedWaitingList(){
@@ -355,7 +371,7 @@ function moveToInCourtByName(name){
   if(i===-1) return;
   state.waiting.splice(i,1);
   state.stats[name].games++;
-  state.incourt.push({name});
+  state.incourt.push({name, extraUsed:false});
   save();
 }
 
@@ -364,6 +380,16 @@ function moveToWaiting(i){
   state.waiting.push(p.name);
   save();
 }
+
+function stayOneMore(i){
+  const p = state.incourt[i];
+  if(p.extraUsed) return;
+
+  p.extraUsed = true;
+  state.stats[p.name].games++;
+  save();
+}
+
 
 /* ================= TEAM GENERATOR ================= */
 
