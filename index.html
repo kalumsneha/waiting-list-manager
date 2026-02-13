@@ -275,7 +275,7 @@ function render(){
 
     const arrow=document.createElement('div');
     arrow.className='icon-btn btn-move';
-    arrow.innerHTML='➤';
+    arrow.innerHTML='➡️';
     
     if(i >= availableSlots){
       arrow.classList.add('icon-disabled');
@@ -298,13 +298,13 @@ function render(){
 
     const stay=document.createElement('div');
     stay.className='icon-btn btn-stay';
-    stay.innerHTML='⟲';
+    stay.innerHTML='🔄';
     if(p.extraUsed) stay.classList.add('icon-disabled');
     stay.onclick=()=>stayOneMore(i);
 
     const back=document.createElement('div');
     back.className='icon-btn btn-back';
-    back.innerHTML='❮';
+    back.innerHTML='⬅️';
     back.onclick=()=>moveToWaiting(i);
 
     actions.appendChild(stay);
