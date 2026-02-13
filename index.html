@@ -14,8 +14,28 @@ button:hover{background:#125aa0}
 .panel{flex:1;background:white;padding:15px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.1)}
 .panel h3{text-align:center;margin-top:0}
 .list{min-height:300px;border:2px dashed #ccc;border-radius:8px;padding:10px}
-.item{display:flex;justify-content:space-between;align-items:center;background:#e3f2fd;margin:6px 0;padding:8px 10px;border-radius:6px}
+/*.item{display:flex;justify-content:space-between;align-items:center;background:#e3f2fd;margin:6px 0;padding:8px 10px;border-radius:6px}
+.item.incourt{background:#c8e6c9}*/
+.item{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#e3f2fd;
+  margin:10px 0;
+  padding:14px 16px;
+  border-radius:8px;
+  font-size:20px; /* larger for readability */
+  font-weight:600;
+  color:#0d1b2a;
+}
 .item.incourt{background:#c8e6c9}
+.item span.stats{
+  font-size:16px;
+  font-weight:500;
+  margin-left:12px;
+  opacity:.8;
+  color:#37474f;
+}
 /*.arrow{cursor:pointer;font-size:18px;user-select:none;padding-left:10px}*/
 /*.disabled{opacity:.4;pointer-events:none}*/
 .stats{font-size:12px;opacity:.7;margin-left:6px}
@@ -25,43 +45,36 @@ button:hover{background:#125aa0}
   /* ===== TOUCH FRIENDLY ICON BUTTONS ===== */
 
 .icon-btn{
-  width:52px;
-  height:52px;
-  min-width:52px;
-  min-height:52px;
+  width:64px;
+  height:64px;
+  min-width:64px;
+  min-height:64px;
   border-radius:50%;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:26px;
+  font-size:32px; /* bigger icons */
   cursor:pointer;
   user-select:none;
   transition:all .15s ease;
   box-shadow:0 3px 8px rgba(0,0,0,.25);
-  margin-left:8px;
+  margin-left:12px;
 }
 
 /* move to court */
-.btn-move{
-  background:#1976d2;
-  color:white;
-}
+.btn-move{background:#1976d2;color:white}
 .btn-move:hover{background:#1565c0;transform:scale(1.05)}
 .btn-move:active{transform:scale(.9)}
 
 /* stay button */
-.btn-stay{
-  background:#ff9800;
-  color:white;
-}
-.btn-stay:hover{background:#fb8c00}
+.btn-stay{background:#ff9800;color:white}
+.btn-stay:hover{background:#fb8c00;transform:scale(1.05)}
+.btn-stay:active{transform:scale(.9)}
 
 /* move back */
-.btn-back{
-  background:#2e7d32;
-  color:white;
-}
-.btn-back:hover{background:#1b5e20}
+.btn-back{background:#2e7d32;color:white}
+.btn-back:hover{background:#1b5e20;transform:scale(1.05)}
+.btn-back:active{transform:scale(.9)}
 
 /* disabled */
 .icon-disabled{
@@ -78,16 +91,14 @@ button:hover{background:#125aa0}
 .actions{
   display:flex;
   align-items:center;
-  gap:10px;
+  gap:14px;
 }
 
 /* mobile boost */
 @media (max-width:768px){
-  .icon-btn{
-    width:60px;
-    height:60px;
-    font-size:30px;
-  }
+  .item{font-size:18px;padding:12px 14px;}
+  .item span.stats{font-size:14px;margin-left:10px;}
+  .icon-btn{width:60px;height:60px;font-size:28px;}
 }
 
 </style>
