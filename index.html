@@ -16,17 +16,85 @@ button:hover{background:#125aa0}
 .list{min-height:300px;border:2px dashed #ccc;border-radius:8px;padding:10px}
 .item{display:flex;justify-content:space-between;align-items:center;background:#e3f2fd;margin:6px 0;padding:8px 10px;border-radius:6px}
 .item.incourt{background:#c8e6c9}
-.arrow{cursor:pointer;font-size:18px;user-select:none;padding-left:10px}
-.disabled{opacity:.4;pointer-events:none}
+/*.arrow{cursor:pointer;font-size:18px;user-select:none;padding-left:10px}*/
+/*.disabled{opacity:.4;pointer-events:none}*/
 .stats{font-size:12px;opacity:.7;margin-left:6px}
-.actions{display:flex;align-items:center;gap:6px}
+/*.actions{display:flex;align-items:center;gap:6px}*/
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #f44336; color: white; padding: 10px 20px; border-radius: 5px; opacity: 0; transition: opacity 0.3s; }
 .toast.show { opacity: 1; }
+  /* ===== TOUCH FRIENDLY ICON BUTTONS ===== */
+
+.icon-btn{
+  width:52px;
+  height:52px;
+  min-width:52px;
+  min-height:52px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:26px;
+  cursor:pointer;
+  user-select:none;
+  transition:all .15s ease;
+  box-shadow:0 3px 8px rgba(0,0,0,.25);
+  margin-left:8px;
+}
+
+/* move to court */
+.btn-move{
+  background:#1976d2;
+  color:white;
+}
+.btn-move:hover{background:#1565c0;transform:scale(1.05)}
+.btn-move:active{transform:scale(.9)}
+
+/* stay button */
+.btn-stay{
+  background:#ff9800;
+  color:white;
+}
+.btn-stay:hover{background:#fb8c00}
+
+/* move back */
+.btn-back{
+  background:#2e7d32;
+  color:white;
+}
+.btn-back:hover{background:#1b5e20}
+
+/* disabled */
+.icon-disabled{
+  background:#bdbdbd !important;
+  color:#666 !important;
+  cursor:not-allowed;
+  opacity:.5;
+  box-shadow:none;
+  transform:none !important;
+  pointer-events:none;
+}
+
+/* layout */
+.actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+/* mobile boost */
+@media (max-width:768px){
+  .icon-btn{
+    width:60px;
+    height:60px;
+    font-size:30px;
+  }
+}
+
 </style>
 </head>
 <body>
 
-<h2>🏸 FIFO Waiting List Manager</h2>
+<h2>🏸 DBN Waiting List Manager</h2>
 
 <div class="limit-controls">
 <input type="number" id="maxInCourt" placeholder="Max in-court players" min="1" />
@@ -194,12 +262,12 @@ function render(){
     const div=document.createElement('div');
     div.className='item';
 
-    const arrow=document.createElement('span');
-    arrow.className='arrow';
-    arrow.innerHTML='➡️';
-
+    const arrow=document.createElement('div');
+    arrow.className='icon-btn btn-move';
+    arrow.innerHTML='➜';
+    
     if(i >= availableSlots){
-      arrow.classList.add('disabled');
+      arrow.classList.add('icon-disabled');
     }
       
     arrow.onclick = () => moveToInCourtByName(name);
@@ -217,15 +285,15 @@ function render(){
     const actions=document.createElement('div');
     actions.className='actions';
 
-    const stay=document.createElement('span');
-    stay.className='arrow';
-    stay.innerHTML='🔄';
-    if(p.extraUsed) stay.classList.add('disabled');
+    const stay=document.createElement('div');
+    stay.className='icon-btn btn-stay';
+    stay.innerHTML='⟳';
+    if(p.extraUsed) stay.classList.add('icon-disabled');
     stay.onclick=()=>stayOneMore(i);
 
-    const back=document.createElement('span');
-    back.className='arrow';
-    back.innerHTML='⬅️';
+    const back=document.createElement('div');
+    back.className='icon-btn btn-back';
+    back.innerHTML='←';
     back.onclick=()=>moveToWaiting(i);
 
     actions.appendChild(stay);
