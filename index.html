@@ -184,7 +184,9 @@ function render(){
   waitingDiv.innerHTML='';
   incourtDiv.innerHTML='';
 
-  state.waiting.forEach((name,i)=>{
+  const prioritizedWaiting = getPrioritizedWaitingList();
+  
+  prioritizedWaiting.forEach((name,i)=>{
     const div=document.createElement('div');
     div.className='item';
 
@@ -233,11 +235,33 @@ function render(){
 
 function addToWaitingList(){ addSelectedOrNewPlayers(); }
 
+function getPrioritizedWaitingList() {
+  const indexed = state.waiting.map((name, index) => ({
+    name,
+    games: state.stats[name] || 0,
+    index // FIFO index
+  }));
+
+  indexed.sort((a, b) => {
+    if (a.games !== b.games) {
+      return a.games - b.games; // least games first
+    }
+    return a.index - b.index;   // FIFO within same games
+  });
+
+  return indexed.map(p => p.name);
+}
+
 function moveToInCourt(index){
   if(index!==0) return;
   if(state.maxInCourt!==null && state.incourt.length>=state.maxInCourt) return;
 
-  const name=state.waiting.shift();
+  const prioritized = getPrioritizedWaitingList();
+  const name = prioritized[0];
+  
+  // remove that name from real FIFO list
+  const idx = state.waiting.indexOf(name);
+state.waiting.splice(idx, 1);
   state.stats[name]=(state.stats[name]||0)+1;
   state.incourt.push({name:name,extraUsed:false});
   save();
