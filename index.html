@@ -149,6 +149,7 @@ button:hover{background:#125aa0}
 <div class="nav">
   <button id="btnQueue" class="active" onclick="showPage('queue')">Queue Manager</button>
   <button id="btnTeam" onclick="showPage('team')">Team Generator</button>
+  <button id="btnPlayers" onclick="showPage('players')">Player Manager</button>
 </div>
 
 <!-- ================= QUEUE PAGE ================= -->
@@ -200,6 +201,24 @@ button:hover{background:#125aa0}
 
 </div>
 
+<!-- ================= PLAYER MANAGER PAGE ================= -->
+<div id="playersPage" style="display:none">
+
+<div class="team-controls">
+  <input id="newPlayerName" placeholder="Name"/>
+  <input id="newPlayerSkill" type="number" min="1" max="5" placeholder="Skill (1–5)"/>
+  <select id="newPlayerGender">
+    <option value="M">Male</option>
+    <option value="F">Female</option>
+    <option value="O">Other</option>
+  </select>
+  <button onclick="addNewPlayer()">Add Player</button>
+</div>
+
+<div id="playersContainer" class="team-box"></div>
+
+</div>
+
 <!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -223,11 +242,15 @@ let initialized=false;
 
 /* ---------- NAV ---------- */
 function showPage(p){
-  document.getElementById('queuePage').style.display = p==='queue'?'block':'none';
-  document.getElementById('teamPage').style.display = p==='team'?'block':'none';
-  document.getElementById('btnQueue').classList.toggle('active',p==='queue');
-  document.getElementById('btnTeam').classList.toggle('active',p==='team');
+  queuePage.style.display = p==='queue'?'block':'none';
+  teamPage.style.display = p==='team'?'block':'none';
+  playersPage.style.display = p==='players'?'block':'none';
+
+  btnQueue.classList.toggle('active',p==='queue');
+  btnTeam.classList.toggle('active',p==='team');
+  btnPlayers.classList.toggle('active',p==='players');
 }
+
 
 function normalizeState(s){
   return {
@@ -253,6 +276,7 @@ stateRef.on("value",snap=>{
     state = normalizeState(snap.val());
     updatePlayerSelect();
     render();
+    renderPlayersPage();
   }
 });
 
@@ -482,6 +506,57 @@ function generateMatches(){
     }
   }
 }
+
+  /* ================= Player Manager ================= */
+
+  function renderPlayersPage(){
+  playersContainer.innerHTML='';
+
+  Object.keys(state.stats).forEach(name=>{
+    const p=state.stats[name];
+
+    const row=document.createElement('div');
+    row.className='team';
+
+    row.innerHTML=`
+      <b>${name}</b><br>
+      Skill: <input type="number" min="1" max="5" value="${p.skill}" 
+             onchange="updatePlayer('${name}', 'skill', this.value)">
+      Gender: 
+      <select onchange="updatePlayer('${name}', 'gender', this.value)">
+        <option value="M" ${p.gender==="M"?"selected":""}>M</option>
+        <option value="F" ${p.gender==="F"?"selected":""}>F</option>
+        <option value="O" ${p.gender==="O"?"selected":""}>O</option>
+      </select>
+    `;
+
+    playersContainer.appendChild(row);
+  });
+}
+
+function updatePlayer(name,field,value){
+  if(!state.stats[name]) return;
+  if(field==='skill') value=parseInt(value);
+  state.stats[name][field]=value;
+  save();
+}
+
+function addNewPlayer(){
+  const name=newPlayerName.value.trim();
+  const skill=parseInt(newPlayerSkill.value)||3;
+  const gender=newPlayerGender.value;
+
+  if(!name) return;
+
+  if(!state.stats[name]){
+    state.stats[name]={games:0,skill,gender,history:{with:{},against:{}}};
+  }
+
+  newPlayerName.value='';
+  newPlayerSkill.value='';
+  save();
+}
+
 </script>
 
 </body>
