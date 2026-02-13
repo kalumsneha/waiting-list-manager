@@ -420,12 +420,18 @@ function stayOneMore(i){
 let currentTeams=[];
 
 function getPlayersForTeams(){
-  return Object.keys(state.stats).map(n=>({
+  const activeNames = new Set([
+    ...state.waiting,
+    ...state.incourt.map(p=>p.name)
+  ]);
+
+  return [...activeNames].map(n=>({
     name:n,
-    skill:state.stats[n].skill||3,
-    gender:state.stats[n].gender||"M"
+    skill: state.stats[n]?.skill || 3,
+    gender: state.stats[n]?.gender || "M"
   }));
 }
+
 
 function generateTeams(){
   const size=parseInt(teamSize.value);
