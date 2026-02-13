@@ -39,7 +39,8 @@ button:hover{background:#125aa0}
 }
 /*.arrow{cursor:pointer;font-size:18px;user-select:none;padding-left:10px}*/
 /*.disabled{opacity:.4;pointer-events:none}*/
-.stats{font-size:12px;opacity:.7;margin-left:6px}
+.stats{font-size:15px;opacity:.7;margin-left:6px}
+.name{font-size:18px}
 /*.actions{display:flex;align-items:center;gap:6px}*/
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #f44336; color: white; padding: 10px 20px; border-radius: 5px; opacity: 0; transition: opacity 0.3s; }
 .toast.show { opacity: 1; }
@@ -290,7 +291,7 @@ function render(){
     arrow.onclick = () => moveToInCourtByName(name);
 
     const games=state.stats[name]||0;
-    div.innerHTML=`<span>${name}<span class="stats">(games: ${games})</span></span>`;
+    div.innerHTML=`<span class = "name">${name}<span class="stats">(games: ${games})</span></span>`;
     div.appendChild(arrow);
     waitingDiv.appendChild(div);
   });
