@@ -185,8 +185,12 @@ function render(){
   incourtDiv.innerHTML='';
 
   const prioritizedWaiting = getPrioritizedWaitingList();
+  const availableSlots = (state.maxInCourt === null)
+    ? Infinity
+    : state.maxInCourt - state.incourt.length;
   
-  prioritizedWaiting.forEach((name,i)=>{
+    prioritizedWaiting.forEach((name,i)=>{
+
     const div=document.createElement('div');
     div.className='item';
 
@@ -194,11 +198,11 @@ function render(){
     arrow.className='arrow';
     arrow.innerHTML='➡️';
 
-    if(i!==0 || (state.maxInCourt!==null && state.incourt.length>=state.maxInCourt)){
+    if(i >= availableSlots){
       arrow.classList.add('disabled');
     }
-
-    arrow.onclick=()=>moveToInCourt(i);
+      
+    arrow.onclick = () => moveToInCourtByName(name);
 
     const games=state.stats[name]||0;
     div.innerHTML=`<span>${name}<span class="stats">(games: ${games})</span></span>`;
@@ -267,6 +271,17 @@ state.waiting.splice(idx, 1);
   save();
 }
 
+function moveToInCourtByName(name){
+  if(state.maxInCourt!==null && state.incourt.length>=state.maxInCourt) return;
+
+  const idx = state.waiting.indexOf(name);
+  if(idx === -1) return;
+
+  state.waiting.splice(idx,1);
+  state.stats[name]=(state.stats[name]||0)+1;
+  state.incourt.push({name:name,extraUsed:false});
+  save();
+}
 function stayOneMore(i){
   const p=state.incourt[i];
   if(p.extraUsed) return;
