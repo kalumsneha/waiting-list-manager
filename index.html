@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>DBN Waiting List Manager</title>
+<title>DBN Games Manager</title>
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
 <style>
@@ -144,7 +144,7 @@ button:hover{background:#125aa0}
 
 <body>
 
-<h2>🏸 DBN Waiting List Manager</h2>
+<h2>🏸 DBN Games Manager</h2>
 
 <div class="nav">
   <button id="btnQueue" class="active" onclick="showPage('queue')">Queue Manager</button>
@@ -229,9 +229,18 @@ function showPage(p){
   document.getElementById('btnTeam').classList.toggle('active',p==='team');
 }
 
+function normalizeState(s){
+  return {
+    waiting: Array.isArray(s.waiting) ? s.waiting : [],
+    incourt: Array.isArray(s.incourt) ? s.incourt : [],
+    maxInCourt: (s.maxInCourt === undefined ? null : s.maxInCourt),
+    stats: (typeof s.stats === 'object' && s.stats !== null ? s.stats : {})
+  };
+}
+
 /* ---------- INIT ---------- */
 stateRef.once("value").then(snap=>{
-  if(snap.exists()) state=snap.val();
+  if(snap.exists()) state = normalizeState(snap.val());
   else stateRef.set(state);
   initialized=true;
   updatePlayerSelect();
@@ -241,7 +250,7 @@ stateRef.once("value").then(snap=>{
 stateRef.on("value",snap=>{
   if(!initialized) return;
   if(snap.exists()){
-    state=snap.val();
+    state = normalizeState(snap.val());
     updatePlayerSelect();
     render();
   }
@@ -266,6 +275,10 @@ function updatePlayerSelect(){
 }
 
 function addSelectedOrNewPlayers(){
+  if(!Array.isArray(state.waiting)) state.waiting=[];
+  if(!Array.isArray(state.incourt)) state.incourt=[];
+  if(!state.stats) state.stats={};
+
   const selected=[...playerSelect.selectedOptions].map(o=>o.value);
   const raw=nameInput.value.split(',').map(n=>n.trim()).filter(Boolean);
   const all=[...new Set([...selected,...raw])];
@@ -274,10 +287,15 @@ function addSelectedOrNewPlayers(){
     if(!state.stats[n]){
       state.stats[n]={games:0,skill:3,gender:"M",history:{with:{},against:{}}};
     }
-    if(!state.waiting.includes(n) && !state.incourt.find(p=>p.name===n)){
+
+    const inWaiting = state.waiting.includes(n);
+    const inCourt = state.incourt.find(p=>p.name===n);
+
+    if(!inWaiting && !inCourt){
       state.waiting.push(n);
     }
   });
+
   nameInput.value='';
   save();
 }
