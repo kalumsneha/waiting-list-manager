@@ -654,7 +654,13 @@ function moveToInCourtByName(name){
     return state;
   }, ()=>{
     // log AFTER success
-    logAction({type:"MOVE_TO_COURT", name});
+    logAction({
+      type:"MOVE_TO_COURT",
+      name,
+      ts: Date.now(),
+      session: "default"
+    });
+
   });
 }
 
@@ -714,7 +720,12 @@ function moveToWaiting(name){
     return state;
   }, ()=>{
     // log AFTER success
-    logAction({type:"MOVE_TO_WAITING", name});
+    logAction({
+      type:"MOVE_TO_WAITING",
+      name,
+      ts: Date.now(),
+      session: "default"
+    });
   });
 }
 
@@ -783,7 +794,12 @@ function stayOneMore(name){
     return state;
   }, ()=>{
     // log AFTER success
-    logAction({type:"STAY", name});
+    logAction({
+      type:"STAY",
+      name,
+      ts: Date.now(),
+      session: "default"
+    });
   });
 }
 
@@ -1030,7 +1046,12 @@ function removeFromSession(name){
     return state;
   }, ()=>{
     // log AFTER success
-    logAction({type:"REMOVE", name});
+    logAction({
+      type:"REMOVE",
+      name,
+      ts: Date.now(),
+      session: "default"
+    });
   });
 }
 
@@ -1118,7 +1139,13 @@ function editGameCount(name){
     return state;
   }, ()=>{
     // log AFTER success
-    logAction({type:"EDIT_GAMES", name});
+    logAction({
+      type:"EDIT_GAMES",
+      name,
+      ts: Date.now(),
+      session: "default",
+      value: num
+    });
   });
 }
 
@@ -1163,7 +1190,7 @@ function rebuildStateFromActions(){
     const newState = {
       waiting:[],
       incourt:[],
-      maxInCourt: state.maxInCourt || null,
+      maxInCourt: state.maxInCourt ||null,
       stats:{}
     };
 
