@@ -96,6 +96,24 @@ button:hover{background:#125aa0}
 .btn-back{background:#f44336;color:white}
 .btn-stay{background:#ff9800;color:white}
 
+/* up/down */
+.btn-up, .btn-down{
+  background:#546e7a;
+  color:white;
+}
+
+/* remove */
+.btn-remove{
+  background:#9e9e9e;
+  color:white;
+}
+
+.actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
 .icon-disabled{
   background:#bdbdbd !important;
   cursor:not-allowed;
@@ -165,6 +183,7 @@ button:hover{background:#125aa0}
 <input type="text" id="nameInput" placeholder="Enter new names (comma separated)" />
 <button onclick="addSelectedOrNewPlayers()">Add Players</button>
 <button onclick="clearCourt()">Clear Court</button>
+<button onclick="undoLastAction()">↩ Undo</button>
 </div>
 
 <div class="container">
@@ -239,6 +258,7 @@ let state={
 };
 
 let initialized=false;
+let actionHistory = [];
 
 /* ---------- NAV ---------- */
 function showPage(p){
@@ -281,6 +301,17 @@ stateRef.on("value",snap=>{
 });
 
 function save(){ stateRef.set(state); }
+
+
+function undoLastAction(){
+  if(actionHistory.length === 0) return;
+  const last = actionHistory.pop();
+  state.waiting = last.prevWaiting;
+  state.incourt = last.prevInCourt;
+  state.stats = last.prevStats;
+  save();
+}
+
 
 /* ---------- QUEUE LOGIC (UNCHANGED CORE) ---------- */
 
@@ -340,13 +371,41 @@ function render(){
 
   prioritized.forEach((n,i)=>{
     const d=document.createElement('div');d.className='item';
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    
     const b=document.createElement('div');
     b.className='icon-btn btn-move';
     if(i>=slots) b.classList.add('icon-disabled');
     b.innerHTML='<span class="material-icons">arrow_forward</span>';
     b.onclick=()=>moveToInCourtByName(n);
+
+      // ⬆ Move Up
+    const upBtn = document.createElement('div');
+    upBtn.className = 'icon-btn btn-up';
+    upBtn.textContent = '⬆';
+    upBtn.onclick = ()=>moveUpWaiting(i);
+  
+    // ⬇ Move Down
+   const downBtn = document.createElement('div');
+    downBtn.className = 'icon-btn btn-down';
+    downBtn.textContent = '⬇';
+    downBtn.onclick = ()=>moveDownWaiting(i);
+
+      // ❌ Remove from session
+    const removeBtn = document.createElement('div');
+    removeBtn.className = 'icon-btn btn-remove';
+    removeBtn.textContent = '✖';
+    removeBtn.onclick = ()=>removeFromSession(n);
+
+    actions.appendChild(b);
+    actions.appendChild(upBtn);
+    actions.appendChild(downBtn);
+    actions.appendChild(removeBtn);
+    
     d.innerHTML=`<span>${n} (games:${state.stats[n].games})</span>`;
-    d.appendChild(b);
+    d.appendChild(actions)
+    
     waitingList.appendChild(d);
   });
 
@@ -393,6 +452,14 @@ function moveToInCourtByName(name){
   if(state.maxInCourt && state.incourt.length>=state.maxInCourt) return;
   const i=state.waiting.indexOf(name);
   if(i===-1) return;
+
+  actionHistory.push({
+    type:"MOVE_TO_COURT",
+    prevWaiting:[...state.waiting],
+    prevInCourt:JSON.parse(JSON.stringify(state.incourt)),
+    prevStats:JSON.parse(JSON.stringify(state.stats))
+  });
+
   state.waiting.splice(i,1);
   state.stats[name].games++;
   state.incourt.push({name, extraUsed:false});
@@ -400,6 +467,13 @@ function moveToInCourtByName(name){
 }
 
 function moveToWaiting(i){
+  actionHistory.push({
+    type:"MOVE_TO_WAITING",
+    prevWaiting:[...state.waiting],
+    prevInCourt:JSON.parse(JSON.stringify(state.incourt)),
+    prevStats:JSON.parse(JSON.stringify(state.stats))
+  });
+
   const p=state.incourt.splice(i,1)[0];
   state.waiting.push(p.name);
   save();
@@ -409,10 +483,18 @@ function stayOneMore(i){
   const p = state.incourt[i];
   if(p.extraUsed) return;
 
+  actionHistory.push({
+    type:"STAY",
+    prevWaiting:[...state.waiting],
+    prevInCourt:JSON.parse(JSON.stringify(state.incourt)),
+    prevStats:JSON.parse(JSON.stringify(state.stats))
+  });
+
   p.extraUsed = true;
   state.stats[p.name].games++;
   save();
 }
+
 
 
 /* ================= TEAM GENERATOR ================= */
@@ -459,24 +541,43 @@ function generateTeams(){
 }
 
 function spreadFemales(teams){
-  const females=[];
-  teams.forEach(t=>t.forEach(p=>p.gender==="F"&&females.push(p)));
+  const femalePositions = [];
 
-  if(females.length>=teams.length*2) return;
+  teams.forEach((team, ti)=>{
+    team.forEach((p, pi)=>{
+      if(p.gender==="F"){
+        femalePositions.push({ti,pi,p});
+      }
+    });
+  });
 
-  teams.forEach(t=>{
-    const f=t.filter(p=>p.gender==="F");
-    if(f.length>1){
-      for(let i=1;i<f.length;i++){
-        const target=teams.find(x=>x.filter(p=>p.gender==="F").length===0);
-        if(target){
-          target.push(f[i]);
-          t.splice(t.indexOf(f[i]),1);
+  if(femalePositions.length === 0) return;
+
+  const teamsWithFemale = new Set(femalePositions.map(f=>f.ti));
+
+  for(let i=0;i<femalePositions.length;i++){
+    const f = femalePositions[i];
+
+    const duplicates = femalePositions.filter(x=>x.ti===f.ti).length;
+    if(duplicates > 1){
+      const targetTeamIndex = teams.findIndex((t,idx)=>
+        !teamsWithFemale.has(idx)
+      );
+
+      if(targetTeamIndex !== -1){
+        const swapIndex = teams[targetTeamIndex].findIndex(p=>p.gender!=="F");
+        if(swapIndex !== -1){
+          const temp = teams[targetTeamIndex][swapIndex];
+          teams[targetTeamIndex][swapIndex] = f.p;
+          teams[f.ti][f.pi] = temp;
+
+          teamsWithFemale.add(targetTeamIndex);
         }
       }
     }
-  });
+  }
 }
+
 
 function reshuffleTeams(){
   const size=parseInt(teamSize.value);
@@ -562,6 +663,36 @@ function addNewPlayer(){
   newPlayerSkill.value='';
   save();
 }
+
+  /* ================= Remove Player from Session ================= */
+
+function removeFromSession(name){
+  actionHistory.push({
+    type:"REMOVE_PLAYER",
+    prevWaiting:[...state.waiting],
+    prevInCourt:JSON.parse(JSON.stringify(state.incourt)),
+    prevStats:JSON.parse(JSON.stringify(state.stats))
+  });
+
+  state.waiting = state.waiting.filter(n=>n!==name);
+  state.incourt = state.incourt.filter(p=>p.name!==name);
+  save();
+}
+
+/* ================= Shift Player up or down ================= */
+
+function moveUpWaiting(i){
+  if(i<=0) return;
+  [state.waiting[i-1], state.waiting[i]] = [state.waiting[i], state.waiting[i-1]];
+  save();
+}
+
+function moveDownWaiting(i){
+  if(i>=state.waiting.length-1) return;
+  [state.waiting[i+1], state.waiting[i]] = [state.waiting[i], state.waiting[i+1]];
+  save();
+}
+
 
 </script>
 
