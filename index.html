@@ -468,9 +468,18 @@ function render(){
   
     menuBtn.onclick=(e)=>{
       e.stopPropagation();
+    
+      const isOpen = menuPanel.classList.contains('show');
+    
+      // close all first
       closeMenus();
-      menuPanel.classList.toggle('show');
+    
+      // toggle only if it was not already open
+      if(!isOpen){
+        menuPanel.classList.add('show');
+      }
     };
+
   
     menuWrap.appendChild(menuBtn);
     menuWrap.appendChild(menuPanel);
