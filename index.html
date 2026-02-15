@@ -752,17 +752,43 @@ function removeFromSession(name){
   save();
 }
 
-/* ================= Shift Player up or down ================= */
+/* ================= Player Context Menu ================= */
+
+function closeMenus(){
+  document.querySelectorAll('.menu-panel').forEach(m=>m.classList.remove('show'));
+}
+
+document.addEventListener('click',closeMenus);
+
+/* ===== ADMIN ACTIONS ===== */
 
 function moveUpWaiting(i){
   if(i<=0) return;
-  [state.waiting[i-1], state.waiting[i]] = [state.waiting[i], state.waiting[i-1]];
+  const arr=state.waiting;
+  [arr[i-1],arr[i]]=[arr[i],arr[i-1]];
   save();
 }
 
 function moveDownWaiting(i){
-  if(i>=state.waiting.length-1) return;
-  [state.waiting[i+1], state.waiting[i]] = [state.waiting[i], state.waiting[i+1]];
+  const arr=state.waiting;
+  if(i>=arr.length-1) return;
+  [arr[i],arr[i+1]]=[arr[i+1],arr[i]];
+  save();
+}
+
+function removeFromSession(name){
+  state.waiting = state.waiting.filter(n=>n!==name);
+  state.incourt = state.incourt.filter(p=>p.name!==name);
+  save();
+}
+
+function editGameCount(name){
+  const current = state.stats[name].games || 0;
+  const v = prompt(`Edit game count for ${name}:`, current);
+  if(v===null) return;
+  const num = parseInt(v);
+  if(isNaN(num) || num<0) return alert("Invalid number");
+  state.stats[name].games = num;
   save();
 }
 
