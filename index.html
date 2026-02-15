@@ -377,10 +377,22 @@ function undoLastAction(){
 
 /* ---------- QUEUE LOGIC (UNCHANGED CORE) ---------- */
 
-function setLimit(){
+/*function setLimit(){
   const v=parseInt(maxInCourt.value);
   if(v>0){ state.maxInCourt=v; save(); }
+}*/
+
+function setLimit(){
+  const v = parseInt(maxInCourt.value);
+  if(!(v>0)) return;
+
+  stateRef.transaction(state=>{
+    if(!state) return state;
+    state.maxInCourt = v;
+    return state;
+  });
 }
+
 
 function updatePlayerSelect(){
   playerSelect.innerHTML='';
@@ -391,7 +403,7 @@ function updatePlayerSelect(){
   });
 }
 
-function addSelectedOrNewPlayers(){
+/*function addSelectedOrNewPlayers(){
   if(!Array.isArray(state.waiting)) state.waiting=[];
   if(!Array.isArray(state.incourt)) state.incourt=[];
   if(!state.stats) state.stats={};
@@ -415,14 +427,64 @@ function addSelectedOrNewPlayers(){
 
   nameInput.value='';
   save();
+}*/
+
+function addSelectedOrNewPlayers(){
+  if(!Array.isArray(state.waiting)) state.waiting=[];
+  if(!Array.isArray(state.incourt)) state.incourt=[];
+  if(!state.stats) state.stats={};
+  
+  const selected=[...playerSelect.selectedOptions].map(o=>o.value);
+  const raw=nameInput.value.split(',').map(n=>n.trim()).filter(Boolean);
+  const all=[...new Set([...selected,...raw])];
+
+  stateRef.transaction(state=>{
+    if(!state) return state;
+    state = normalizeState(state);
+
+    all.forEach(n=>{
+      if(!state.stats[n]){
+        state.stats[n]={games:0,skill:3,gender:"M",history:{with:{},against:{}}};
+      }
+
+      const inWaiting = state.waiting.includes(n);
+      const inCourt = state.incourt.find(p=>p.name===n);
+
+      if(!inWaiting && !inCourt){
+        state.waiting.push(n);
+      }
+    });
+
+    return state;
+  });
+
+  nameInput.value='';
 }
 
-function clearCourt(){
+
+/*function clearCourt(){
   state.waiting=[];
   state.incourt=[];
   Object.values(state.stats).forEach(p=>p.games=0);
   save();
+}*/
+
+function clearCourt(){
+  stateRef.transaction(state=>{
+    if(!state) return state;
+    state = normalizeState(state);
+
+    state.waiting = [];
+    state.incourt = [];
+
+    Object.values(state.stats).forEach(p=>{
+      p.games = 0;
+    });
+
+    return state;
+  });
 }
+
 
 function render(){
   waitingList.innerHTML='';
@@ -555,7 +617,7 @@ function getPrioritizedWaitingList(){
     .map(x=>x.n);
 }
 
-function moveToInCourtByName(name){
+/*function moveToInCourtByName(name){
   if(state.maxInCourt && state.incourt.length>=state.maxInCourt) return;
   const i=state.waiting.indexOf(name);
   if(i===-1) return;
@@ -571,9 +633,39 @@ function moveToInCourtByName(name){
   state.stats[name].games++;
   state.incourt.push({name, extraUsed:false});
   save();
+}*/
+
+function moveToInCourtByName(name){
+  stateRef.transaction(state=>{
+    if(!state) return state;
+
+    state = normalizeState(state);
+
+    if(state.maxInCourt && state.incourt.length >= state.maxInCourt) return;
+
+    const i = state.waiting.indexOf(name);
+    if(i === -1) return;
+
+    actionHistory.push({
+      type:"MOVE_TO_COURT",
+      prevWaiting:[...state.waiting],
+      prevInCourt:JSON.parse(JSON.stringify(state.incourt)),
+      prevStats:JSON.parse(JSON.stringify(state.stats))
+    });
+
+    state.waiting.splice(i,1);
+
+    if(!state.stats[name]) return;
+    state.stats[name].games = (state.stats[name].games || 0) + 1;
+
+    state.incourt.push({name, extraUsed:false});
+
+    return state;
+  });
 }
 
-function moveToWaiting(i){
+
+/*function moveToWaiting(i){
   actionHistory.push({
     type:"MOVE_TO_WAITING",
     prevWaiting:[...state.waiting],
@@ -584,9 +676,31 @@ function moveToWaiting(i){
   const p=state.incourt.splice(i,1)[0];
   state.waiting.push(p.name);
   save();
+}*/
+
+function moveToWaiting(i){
+  stateRef.transaction(state=>{
+    if(!state) return state;
+    state = normalizeState(state);
+
+    if(!state.incourt[i]) return;
+
+    actionHistory.push({
+      type:"MOVE_TO_WAITING",
+      prevWaiting:[...state.waiting],
+      prevInCourt:JSON.parse(JSON.stringify(state.incourt)),
+      prevStats:JSON.parse(JSON.stringify(state.stats))
+    });
+    
+    const p = state.incourt.splice(i,1)[0];
+    state.waiting.push(p.name);
+
+    return state;
+  });
 }
 
-function stayOneMore(i){
+
+/*function stayOneMore(i){
   const p = state.incourt[i];
   if(p.extraUsed) return;
 
@@ -600,8 +714,31 @@ function stayOneMore(i){
   p.extraUsed = true;
   state.stats[p.name].games++;
   save();
-}
+}*/
 
+function stayOneMore(i){
+  stateRef.transaction(state=>{
+    if(!state) return state;
+    state = normalizeState(state);
+
+    const p = state.incourt[i];
+    if(!p || p.extraUsed) return;
+
+    actionHistory.push({
+      type:"STAY",
+      prevWaiting:[...state.waiting],
+      prevInCourt:JSON.parse(JSON.stringify(state.incourt)),
+      prevStats:JSON.parse(JSON.stringify(state.stats))
+    });
+    
+    p.extraUsed = true;
+    if(state.stats[p.name]){
+      state.stats[p.name].games = (state.stats[p.name].games || 0) + 1;
+    }
+
+    return state;
+  });
+}
 
 
 /* ================= TEAM GENERATOR ================= */
@@ -838,27 +975,71 @@ document.addEventListener('click',closeMenus);
 
 /* ===== ADMIN ACTIONS ===== */
 
-function moveUpWaiting(i){
+/*function moveUpWaiting(i){
   if(i<=0) return;
   const arr=state.waiting;
   [arr[i-1],arr[i]]=[arr[i],arr[i-1]];
   save();
+}*/
+
+function moveUpWaiting(i){
+  stateRef.transaction(state=>{
+    if(!state) return state;
+    state = normalizeState(state);
+
+    if(i<=0 || i>=state.waiting.length) return;
+
+    const arr=state.waiting;
+    [arr[i-1],arr[i]]=[arr[i],arr[i-1]];
+
+    return state;
+  });
 }
 
-function moveDownWaiting(i){
+
+/*function moveDownWaiting(i){
   const arr=state.waiting;
   if(i>=arr.length-1) return;
   [arr[i],arr[i+1]]=[arr[i+1],arr[i]];
   save();
+}*/
+
+function moveDownWaiting(i){
+  stateRef.transaction(state=>{
+    if(!state) return state;
+    state = normalizeState(state);
+
+    if(i<0 || i>=state.waiting.length-1) return;
+
+    const arr=state.waiting;
+
+    [arr[i],arr[i+1]]=[arr[i+1],arr[i]];
+
+    return state;
+  });
 }
 
-function removeFromSession(name){
+
+/*function removeFromSession(name){
   state.waiting = state.waiting.filter(n=>n!==name);
   state.incourt = state.incourt.filter(p=>p.name!==name);
   save();
+}*/
+
+function removeFromSession(name){
+  stateRef.transaction(state=>{
+    if(!state) return state;
+    state = normalizeState(state);
+
+    state.waiting = state.waiting.filter(n=>n!==name);
+    state.incourt = state.incourt.filter(p=>p.name!==name);
+
+    return state;
+  });
 }
 
-function editGameCount(name){
+
+/*function editGameCount(name){
   const current = state.stats[name].games || 0;
   const v = prompt(`Edit game count for ${name}:`, current);
   if(v===null) return;
@@ -866,7 +1047,27 @@ function editGameCount(name){
   if(isNaN(num) || num<0) return alert("Invalid number");
   state.stats[name].games = num;
   save();
+}*/
+
+function editGameCount(name){
+  const current = state.stats[name]?.games || 0;
+  const v = prompt(`Edit game count for ${name}:`, current);
+  if(v===null) return;
+  const num = parseInt(v);
+  if(isNaN(num) || num<0) return alert("Invalid number");
+
+  stateRef.transaction(state=>{
+    if(!state) return state;
+    state = normalizeState(state);
+
+    if(state.stats[name]){
+      state.stats[name].games = num;
+    }
+
+    return state;
+  });
 }
+
 
 
 </script>
