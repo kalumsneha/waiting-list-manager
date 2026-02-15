@@ -309,6 +309,7 @@ button:hover{background:#125aa0}
 firebase.initializeApp(window.FIREBASE_CONFIG);
 const db = firebase.database();
 const stateRef = db.ref("fifoState");
+const actionsRef = db.ref("fifoActions");
 </script>
 
 <script>
@@ -363,16 +364,6 @@ stateRef.on("value",snap=>{
 });
 
 function save(){ stateRef.set(state); }
-
-
-function undoLastAction(){
-  if(actionHistory.length === 0) return;
-  const last = actionHistory.pop();
-  state.waiting = last.prevWaiting;
-  state.incourt = last.prevInCourt;
-  state.stats = last.prevStats;
-  save();
-}
 
 
 /* ---------- QUEUE LOGIC (UNCHANGED CORE) ---------- */
@@ -592,13 +583,13 @@ function render(){
   
     if(p.extraUsed) stay.classList.add('icon-disabled');
   
-    stay.onclick=()=>stayOneMore(i);
+    stay.onclick=()=>stayOneMore(p);
   
     /* ---- BACK BUTTON ---- */
     const back=document.createElement('div');
     back.className='icon-btn btn-back';
     back.innerHTML='<span class="material-icons">arrow_back</span>';
-    back.onclick=()=>moveToWaiting(i);
+    back.onclick=()=>moveToWaiting(p);
   
     a.appendChild(stay);
     a.appendChild(back);
@@ -661,6 +652,9 @@ function moveToInCourtByName(name){
     state.incourt.push({name, extraUsed:false});
 
     return state;
+  }, ()=>{
+    // log AFTER success
+    logAction({type:"MOVE_TO_COURT", name});
   });
 }
 
@@ -678,7 +672,7 @@ function moveToInCourtByName(name){
   save();
 }*/
 
-function moveToWaiting(i){
+/*function moveToWaiting(i){
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
@@ -697,7 +691,33 @@ function moveToWaiting(i){
 
     return state;
   });
+}*/
+
+function moveToWaiting(name){
+  stateRef.transaction(state=>{
+    if(!state) return state;
+    state = normalizeState(state);
+
+    const pIndex = state.incourt.findIndex(p=>p.name===name);
+    if(pIndex===-1) return;
+
+    actionHistory.push({
+      type:"MOVE_TO_WAITING",
+      prevWaiting:[...state.waiting],
+      prevInCourt:JSON.parse(JSON.stringify(state.incourt)),
+      prevStats:JSON.parse(JSON.stringify(state.stats))
+    });
+
+    const p = state.incourt.splice(pIndex,1)[0];
+    state.waiting.push(p.name);
+
+    return state;
+  }, ()=>{
+    // log AFTER success
+    logAction({type:"MOVE_TO_WAITING", name});
+  });
 }
+
 
 
 /*function stayOneMore(i){
@@ -716,7 +736,7 @@ function moveToWaiting(i){
   save();
 }*/
 
-function stayOneMore(i){
+/*function stayOneMore(i){
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
@@ -737,6 +757,33 @@ function stayOneMore(i){
     }
 
     return state;
+  });
+}*/
+
+function stayOneMore(name){
+  stateRef.transaction(state=>{
+    if(!state) return state;
+    state = normalizeState(state);
+
+    const p = state.incourt.find(p=>p.name===name);
+    if(!p || p.extraUsed) return;
+
+    actionHistory.push({
+      type:"STAY",
+      prevWaiting:[...state.waiting],
+      prevInCourt:JSON.parse(JSON.stringify(state.incourt)),
+      prevStats:JSON.parse(JSON.stringify(state.stats))
+    });
+    
+    p.extraUsed = true;
+    if(state.stats[p.name]){
+      state.stats[p.name].games = (state.stats[p.name].games || 0) + 1;
+    }
+
+    return state;
+  }, ()=>{
+    // log AFTER success
+    logAction({type:"STAY", name});
   });
 }
 
@@ -952,7 +999,7 @@ function addNewPlayer(){
 
   /* ================= Remove Player from Session ================= */
 
-function removeFromSession(name){
+/*function removeFromSession(name){
   actionHistory.push({
     type:"REMOVE_PLAYER",
     prevWaiting:[...state.waiting],
@@ -963,8 +1010,31 @@ function removeFromSession(name){
   state.waiting = state.waiting.filter(n=>n!==name);
   state.incourt = state.incourt.filter(p=>p.name!==name);
   save();
+}*/
+
+function removeFromSession(name){
+  stateRef.transaction(state=>{
+    if(!state) return state;
+    state = normalizeState(state);
+
+     actionHistory.push({
+      type:"REMOVE_PLAYER",
+      prevWaiting:[...state.waiting],
+      prevInCourt:JSON.parse(JSON.stringify(state.incourt)),
+      prevStats:JSON.parse(JSON.stringify(state.stats))
+    });
+    
+    state.waiting = state.waiting.filter(n=>n!==name);
+    state.incourt = state.incourt.filter(p=>p.name!==name);
+
+    return state;
+  }, ()=>{
+    // log AFTER success
+    logAction({type:"REMOVE", name});
+  });
 }
 
+  
 /* ================= Player Context Menu ================= */
 
 function closeMenus(){
@@ -1020,25 +1090,6 @@ function moveDownWaiting(i){
 }
 
 
-/*function removeFromSession(name){
-  state.waiting = state.waiting.filter(n=>n!==name);
-  state.incourt = state.incourt.filter(p=>p.name!==name);
-  save();
-}*/
-
-function removeFromSession(name){
-  stateRef.transaction(state=>{
-    if(!state) return state;
-    state = normalizeState(state);
-
-    state.waiting = state.waiting.filter(n=>n!==name);
-    state.incourt = state.incourt.filter(p=>p.name!==name);
-
-    return state;
-  });
-}
-
-
 /*function editGameCount(name){
   const current = state.stats[name].games || 0;
   const v = prompt(`Edit game count for ${name}:`, current);
@@ -1065,6 +1116,95 @@ function editGameCount(name){
     }
 
     return state;
+  }, ()=>{
+    // log AFTER success
+    logAction({type:"EDIT_GAMES", name});
+  });
+}
+
+/* ================= Global Distributed Undo Option================= */
+
+function logAction(action){
+  actionsRef.push({
+    ...action,
+    timestamp: Date.now()
+  });
+}
+
+/*function undoLastAction(){
+  if(actionHistory.length === 0) return;
+  const last = actionHistory.pop();
+  state.waiting = last.prevWaiting;
+  state.incourt = last.prevInCourt;
+  state.stats = last.prevStats;
+  save();
+}*/
+  
+function undoLastAction(){
+  actionsRef.orderByChild("timestamp").limitToLast(1).once("value", snap=>{
+    if(!snap.exists()) return;
+
+    const lastKey = Object.keys(snap.val())[0];
+
+    // remove last action
+    actionsRef.child(lastKey).remove().then(()=>{
+      rebuildStateFromActions();
+    });
+  });
+}
+
+function rebuildStateFromActions(){
+  actionsRef.once("value").then(snap=>{
+    let actions = [];
+    if(snap.exists()){
+      actions = Object.values(snap.val()).sort((a,b)=>a.timestamp-b.timestamp);
+    }
+
+    const newState = {
+      waiting:[],
+      incourt:[],
+      maxInCourt: state.maxInCourt || null,
+      stats:{}
+    };
+
+    actions.forEach(a=>{
+      if(!newState.stats[a.name]){
+        newState.stats[a.name]={games:0,skill:3,gender:"M",history:{}};
+      }
+
+      switch(a.type){
+        case "MOVE_TO_COURT":
+          newState.waiting = newState.waiting.filter(n=>n!==a.name);
+          newState.incourt.push({name:a.name, extraUsed:false});
+          newState.stats[a.name].games++;
+          break;
+
+        case "MOVE_TO_WAITING":
+          newState.incourt = newState.incourt.filter(p=>p.name!==a.name);
+          if(!newState.waiting.includes(a.name))
+            newState.waiting.push(a.name);
+          break;
+
+        case "STAY":
+          const p = newState.incourt.find(p=>p.name===a.name);
+          if(p){
+            p.extraUsed=true;
+            newState.stats[a.name].games++;
+          }
+          break;
+
+        case "EDIT_GAMES":
+          newState.stats[a.name].games = a.value;
+          break;
+
+        case "REMOVE":
+          newState.waiting = newState.waiting.filter(n=>n!==a.name);
+          newState.incourt = newState.incourt.filter(p=>p.name!==a.name);
+          break;
+      }
+    });
+
+    stateRef.set(newState);
   });
 }
 
