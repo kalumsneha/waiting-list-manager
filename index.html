@@ -583,13 +583,13 @@ function render(){
   
     if(p.extraUsed) stay.classList.add('icon-disabled');
   
-    stay.onclick=()=>stayOneMore(p);
+    stay.onclick=()=>stayOneMore(p.name);
   
     /* ---- BACK BUTTON ---- */
     const back=document.createElement('div');
     back.className='icon-btn btn-back';
     back.innerHTML='<span class="material-icons">arrow_back</span>';
-    back.onclick=()=>moveToWaiting(p);
+    back.onclick=()=>moveToWaiting(p.name);
   
     a.appendChild(stay);
     a.appendChild(back);
