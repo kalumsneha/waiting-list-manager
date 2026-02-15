@@ -203,6 +203,22 @@ button:hover{background:#125aa0}
   color:#1565c0;
 }
 
+.left-box{
+  flex:1;
+  display:flex;
+  align-items:center;
+  font-size:20px;
+  font-weight:600;
+}
+
+.right-box{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  justify-content:flex-end;
+}
+
+
 </style>
 </head>
 
@@ -484,9 +500,18 @@ function render(){
     menuWrap.appendChild(menuBtn);
     menuWrap.appendChild(menuPanel);
     
-    d.appendChild(label);
-    d.appendChild(b);
-    d.appendChild(menuWrap);
+    const leftBox = document.createElement('div');
+    leftBox.className = 'left-box';
+    leftBox.appendChild(label);
+    
+    const rightBox = document.createElement('div');
+    rightBox.className = 'right-box';
+    rightBox.appendChild(b);
+    rightBox.appendChild(menuWrap);
+    
+    d.appendChild(leftBox);
+    d.appendChild(rightBox);
+
     
     waitingList.appendChild(d);
   });
@@ -660,17 +685,59 @@ function spreadFemales(teams){
   }
 }
 
-
 function reshuffleTeams(){
-  const size=parseInt(teamSize.value);
-  let players=getPlayersForTeams().sort(()=>Math.random()-0.5);
-  const numTeams=Math.floor(players.length/size);
-  let teams=[...Array(numTeams)].map(()=>[]);
-  players.forEach((p,i)=>teams[i%numTeams].push(p));
-  spreadFemales(teams);
-  currentTeams=teams;
+  const size = parseInt(teamSize.value);
+  let players = getPlayersForTeams();
+
+  const numTeams = Math.floor(players.length / size);
+  if(numTeams < 1) return;
+
+  // true shuffle
+  for(let i = players.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [players[i], players[j]] = [players[j], players[i]];
+  }
+
+  // generate many candidates, pick best balance
+  let bestTeams = null;
+  let bestScore = Infinity;
+
+  for(let r = 0; r < 80; r++){   // 80 random attempts
+    let tempPlayers = [...players];
+
+    // reshuffle each round
+    for(let i = tempPlayers.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [tempPlayers[i], tempPlayers[j]] = [tempPlayers[j], tempPlayers[i]];
+    }
+
+    let teams = Array.from({length:numTeams},()=>[]);
+
+    tempPlayers.forEach(p=>{
+      // place into team with lowest skill sum
+      teams.sort((a,b)=>
+        a.reduce((s,x)=>s+x.skill,0) - b.reduce((s,x)=>s+x.skill,0)
+      );
+      teams[0].push(p);
+    });
+
+    spreadFemales(teams);
+
+    // balance score
+    const sums = teams.map(t=>t.reduce((a,b)=>a+b.skill,0));
+    const avg = sums.reduce((a,b)=>a+b,0)/sums.length;
+    const score = sums.reduce((s,v)=>s+Math.abs(v-avg),0);
+
+    if(score < bestScore){
+      bestScore = score;
+      bestTeams = teams;
+    }
+  }
+
+  currentTeams = bestTeams;
   renderTeams();
 }
+
 
 function renderTeams(){
   teamsContainer.innerHTML='';
