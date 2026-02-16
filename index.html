@@ -424,10 +424,12 @@ function updatePlayerSelect(){
   save();
 }*/
 
-function addSelectedOrNewPlayers(){
+async function addSelectedOrNewPlayers(){
   if(!Array.isArray(state.waiting)) state.waiting=[];
   if(!Array.isArray(state.incourt)) state.incourt=[];
   if(!state.stats) state.stats={};
+
+  await saveVersion();
   
   const selected=[...playerSelect.selectedOptions].map(o=>o.value);
   const raw=nameInput.value.split(',').map(n=>n.trim()).filter(Boolean);
@@ -464,7 +466,8 @@ function addSelectedOrNewPlayers(){
   save();
 }*/
 
-function clearCourt(){
+async function clearCourt(){
+  await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
