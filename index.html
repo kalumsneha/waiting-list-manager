@@ -630,7 +630,8 @@ function getPrioritizedWaitingList(){
   save();
 }*/
 
-function moveToInCourtByName(name){
+async function moveToInCourtByName(name){
+  await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
 
@@ -656,8 +657,6 @@ function moveToInCourtByName(name){
     state.incourt.push({name, extraUsed:false});
 
     return state;
-  }, async ()=>{
-    await saveVersion();
   });
 }
 
@@ -696,7 +695,8 @@ function moveToInCourtByName(name){
   });
 }*/
 
-function moveToWaiting(name){
+async function moveToWaiting(name){
+  await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
@@ -715,8 +715,6 @@ function moveToWaiting(name){
     state.waiting.push(p.name);
 
     return state;
-  }, async ()=>{
-    await saveVersion();
   });
 }
 
@@ -762,7 +760,8 @@ function moveToWaiting(name){
   });
 }*/
 
-function stayOneMore(name){
+async function stayOneMore(name){
+  await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
@@ -783,8 +782,6 @@ function stayOneMore(name){
     }
 
     return state;
-  }, async ()=>{
-    await saveVersion();
   });
 }
 
@@ -1013,7 +1010,8 @@ function addNewPlayer(){
   save();
 }*/
 
-function removeFromSession(name){
+async function removeFromSession(name){
+  await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
@@ -1029,8 +1027,6 @@ function removeFromSession(name){
     state.incourt = state.incourt.filter(p=>p.name!==name);
 
     return state;
-  }, async ()=>{
-    await saveVersion();
   });
 }
 
@@ -1052,7 +1048,8 @@ document.addEventListener('click',closeMenus);
   save();
 }*/
 
-function moveUpWaiting(i){
+async function moveUpWaiting(i){
+  await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
@@ -1063,8 +1060,6 @@ function moveUpWaiting(i){
     [arr[i-1],arr[i]]=[arr[i],arr[i-1]];
 
     return state;
-  }, async ()=>{
-    await saveVersion();
   });
 }
 
@@ -1076,7 +1071,8 @@ function moveUpWaiting(i){
   save();
 }*/
 
-function moveDownWaiting(i){
+async function moveDownWaiting(i){
+  await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
@@ -1088,8 +1084,6 @@ function moveDownWaiting(i){
     [arr[i],arr[i+1]]=[arr[i+1],arr[i]];
 
     return state;
-  }, async ()=>{
-    await saveVersion();
   });
 }
 
@@ -1248,10 +1242,11 @@ async function undo(){
   const index = versions.findIndex(v=>v[0]===pointer);
   if(index <= 0) return;
 
-  const prev = versions[index-1];
+  const prev = versions[index];
+  const prevPointer = versions[index-1];
 
   await stateRef.set(prev[1].state);
-  await metaRef.child("undo_pointer").set(prev[0]);
+  await metaRef.child("undo_pointer").set(prevPointer[0]);
 }
 
 async function redo(){
@@ -1268,9 +1263,10 @@ async function redo(){
   if(index === -1 || index >= versions.length-1) return;
 
   const next = versions[index+1];
+  const nextPointer = versions[index];
 
   await stateRef.set(next[1].state);
-  await metaRef.child("undo_pointer").set(next[0]);
+  await metaRef.child("undo_pointer").set(nextPointer[0]);
 }
 
 async function trimVersions(limit=20){
