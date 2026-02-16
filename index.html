@@ -520,12 +520,12 @@ function render(){
     const up=document.createElement('div');
     up.className='menu-item';
     up.innerHTML='⬆ Move Up';
-    up.onclick=()=>{ moveUpWaiting(i); closeMenus(); };
+    up.onclick=()=>{ moveUpWaiting(n); closeMenus(); };
   
     const down=document.createElement('div');
     down.className='menu-item';
     down.innerHTML='⬇ Move Down';
-    down.onclick=()=>{ moveDownWaiting(i); closeMenus(); };
+    down.onclick=()=>{ moveDownWaiting(n); closeMenus(); };
   
     const edit=document.createElement('div');
     edit.className='menu-item menu-edit';
@@ -1051,12 +1051,13 @@ document.addEventListener('click',closeMenus);
   save();
 }*/
 
-async function moveUpWaiting(i){
+async function moveUpWaiting(name){
   await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
 
+    const i = state.waiting.indexOf(name);
     if(i<=0 || i>=state.waiting.length) return;
 
     const arr=state.waiting;
@@ -1074,12 +1075,13 @@ async function moveUpWaiting(i){
   save();
 }*/
 
-async function moveDownWaiting(i){
+async function moveDownWaiting(name){
   await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
 
+    const i = state.waiting.indexOf(name);
     if(i<0 || i>=state.waiting.length-1) return;
 
     const arr=state.waiting;
