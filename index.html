@@ -1193,8 +1193,8 @@ function rebuildStateFromActions(){
     }
 
     const newState = {
-      waiting:[],
-      incourt:[],
+      waiting: [...state.waiting],   
+      incourt: [...state.incourt],
       maxInCourt: state.maxInCourt ||null,
       stats: JSON.parse(JSON.stringify(state.stats))
     };
