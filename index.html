@@ -690,8 +690,19 @@ async function moveToInCourtByName(name){
 
     state.incourt.push({name, extraUsed:false});
 
-    // remove from manual order once player is in court
-    if(state.manualOrder) delete state.manualOrder[name];
+  
+    // adjust manualOrder
+    if(state.manualOrder){
+      // remove this player if it was manual
+      delete state.manualOrder[name];
+
+      // decrement index for all manual players below the removed player's position
+      Object.keys(state.manualOrder).forEach(n=>{
+        if(state.manualOrder[n] > i){
+          state.manualOrder[n] = state.manualOrder[n] - 1;
+        }
+      });
+    }
 
     return state;
   });
