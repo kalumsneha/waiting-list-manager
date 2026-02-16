@@ -345,7 +345,7 @@ function normalizeState(s){
     incourt: Array.isArray(s.incourt) ? s.incourt : [],
     maxInCourt: (s.maxInCourt === undefined ? null : s.maxInCourt),
     stats: (typeof s.stats === 'object' && s.stats !== null ? s.stats : {}),
-    manualOrder: Array.isArray(s.manualOrder) ? s.manualOrder : []
+    manualOrder: (typeof s.manualOrder === 'object' && s.manualOrder !== null ? s.manualOrder : {})
   };
 }
 
@@ -617,17 +617,32 @@ function render(){
 }*/
 
 function getPrioritizedWaitingList() {
-  const manual = state.manualOrder || [];
-  const remaining = state.waiting.filter(n => !manual.includes(n));
+  const listLength = state.waiting.length;
+  const finalList = Array(listLength).fill(null);
 
-  // sort remaining by games/FIFO
-  const sorted = remaining
-    .map((n,i)=>({n,g:state.stats[n].games,i}))
-    .sort((a,b)=>a.g - b.g || a.i - b.i)
-    .map(x=>x.n);
+  // 1️⃣ Place manual entries at their target positions
+  Object.entries(state.manualOrder).forEach(([name, pos]) => {
+    if (state.waiting.includes(name)) {
+      finalList[Math.min(pos, listLength - 1)] = name;
+    }
+  });
 
-  return [...manual, ...sorted];
+  // 2️⃣ Fill remaining slots with auto-priority players
+  const auto = state.waiting
+    .filter(n => !state.manualOrder.hasOwnProperty(n))
+    .map(n => ({ n, games: state.stats[n]?.games || 0 }))
+    .sort((a, b) => a.games - b.games);
+
+  let ai = 0;
+  for (let i = 0; i < listLength; i++) {
+    if (finalList[i] === null && ai < auto.length) {
+      finalList[i] = auto[ai++].n;
+    }
+  }
+
+  return finalList;
 }
+
 
 
 /*function moveToInCourtByName(name){
@@ -675,9 +690,7 @@ async function moveToInCourtByName(name){
     state.incourt.push({name, extraUsed:false});
 
     // remove from manual order once player is in court
-    if(state.manualOrder) {
-      state.manualOrder = state.manualOrder.filter(n=>n!==name);
-    }
+    if(state.manualOrder) delete state.manualOrder[name];
 
     return state;
   });
@@ -1087,25 +1100,32 @@ document.addEventListener('click',closeMenus);
   });
 }*/
 
+
 async function moveUpWaiting(name) {
   await saveVersion();
+
   stateRef.transaction(state => {
     if(!state) return state;
     state = normalizeState(state);
 
-    state.manualOrder = state.manualOrder || [];
-    const i = state.manualOrder.indexOf(name);
+    state.manualOrder = state.manualOrder || {};
 
-    if(i === -1) {
-      // first time moving manually, add to manualOrder
-      state.manualOrder.push(name);
-      return state;
-    }
+    const waiting = getPrioritizedWaitingList(); // current effective list
+    const idx = waiting.indexOf(name);
+    if(idx <= 0) return state; // can't move up
 
-    if(i > 0) {
-      [state.manualOrder[i-1], state.manualOrder[i]] =
-      [state.manualOrder[i], state.manualOrder[i-1]];
-    }
+    const targetIdx = idx - 1;
+
+    // Update manualOrder so player moves to targetIdx
+    state.manualOrder[name] = targetIdx;
+
+    // Shift any other manual players that conflict
+    Object.keys(state.manualOrder).forEach(n => {
+      if(n === name) return;
+      if(state.manualOrder[n] >= targetIdx) {
+        state.manualOrder[n] = state.manualOrder[n] + 1;
+      }
+    });
 
     return state;
   });
@@ -1138,21 +1158,33 @@ async function moveUpWaiting(name) {
 
 async function moveDownWaiting(name) {
   await saveVersion();
+
   stateRef.transaction(state => {
     if(!state) return state;
     state = normalizeState(state);
 
-    state.manualOrder = state.manualOrder || [];
-    const i = state.manualOrder.indexOf(name);
-    if(i === -1) return; // not in manualOrder yet
-    if(i < state.manualOrder.length - 1) {
-      [state.manualOrder[i], state.manualOrder[i+1]] =
-      [state.manualOrder[i+1], state.manualOrder[i]];
-    }
+    state.manualOrder = state.manualOrder || {};
+
+    const waiting = getPrioritizedWaitingList();
+    const idx = waiting.indexOf(name);
+    if(idx === -1 || idx >= waiting.length - 1) return state;
+
+    const targetIdx = idx + 1;
+
+    state.manualOrder[name] = targetIdx;
+
+    // Shift any other manual players that conflict
+    Object.keys(state.manualOrder).forEach(n => {
+      if(n === name) return;
+      if(state.manualOrder[n] <= targetIdx) {
+        state.manualOrder[n] = state.manualOrder[n] - 1;
+      }
+    });
 
     return state;
   });
 }
+
 
 
 /*function editGameCount(name){
