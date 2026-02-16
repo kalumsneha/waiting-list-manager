@@ -617,7 +617,7 @@ function render(){
     .map(x=>x.n);
 }*/
 
-function getPrioritizedWaitingList() {
+/*function getPrioritizedWaitingList() {
   const listLength = state.waiting.length;
   const finalList = Array(listLength).fill(null);
 
@@ -643,6 +643,52 @@ function getPrioritizedWaitingList() {
 
   return finalList;
 }
+*/
+
+function getPrioritizedWaitingList() {
+  const waiting = [...state.waiting];
+  const listLength = waiting.length;
+  const finalList = Array(listLength).fill(null);
+
+  const manual = state.manualOrder || {};
+
+  /* 1) Place manual players (sorted by target pos) */
+  const manualEntries = Object.entries(manual)
+    .filter(([name]) => waiting.includes(name))
+    .sort((a,b)=>a[1]-b[1]); // sort by pos
+
+  manualEntries.forEach(([name, pos])=>{
+    let target = Math.min(pos, listLength - 1);
+
+    // find nearest free slot (collision-safe)
+    while(finalList[target] !== null && target < listLength){
+      target++;
+    }
+    if(target < listLength){
+      finalList[target] = name;
+    }
+  });
+
+  /* 2) Auto players */
+  const auto = waiting
+    .filter(n => !manual.hasOwnProperty(n))
+    .map((n,i)=>({
+      n,
+      games: state.stats[n]?.games || 0,
+      i // original FIFO index for stability
+    }))
+    .sort((a,b)=> a.games - b.games || a.i - b.i);
+
+  let ai = 0;
+  for(let i=0;i<listLength;i++){
+    if(finalList[i] === null && ai < auto.length){
+      finalList[i] = auto[ai++].n;
+    }
+  }
+
+  return finalList;
+}
+
 
 
 
@@ -664,7 +710,7 @@ function getPrioritizedWaitingList() {
   save();
 }*/
 
-async function moveToInCourtByName(name){
+/*async function moveToInCourtByName(name){
   await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
@@ -709,7 +755,50 @@ async function moveToInCourtByName(name){
 
     return state;
   });
+}*/
+
+async function moveToInCourtByName(name){
+  await saveVersion();
+
+  stateRef.transaction(state=>{
+    if(!state) return state;
+    state = normalizeState(state);
+
+    if(state.maxInCourt && state.incourt.length >= state.maxInCourt) return;
+
+    // PRIORITIZED view
+    const prioritized = getPrioritizedWaitingList(state);
+    const i = prioritized.indexOf(name);
+    if(i === -1) return;
+
+    // remove from waiting (real array)
+    const realIdx = state.waiting.indexOf(name);
+    if(realIdx !== -1){
+      state.waiting.splice(realIdx,1);
+    }
+
+    // stats
+    if(!state.stats[name]) return;
+    state.stats[name].games = (state.stats[name].games || 0) + 1;
+    state.incourt.push({name, extraUsed:false});
+
+    // ===== MANUAL ORDER ADJUSTMENT =====
+    if(state.manualOrder){
+      // remove player itself
+      delete state.manualOrder[name];
+
+      // shift everyone BELOW this position up by 1
+      Object.keys(state.manualOrder).forEach(n=>{
+        if(state.manualOrder[n] > i){
+          state.manualOrder[n] = state.manualOrder[n] - 1;
+        }
+      });
+    }
+
+    return state;
+  });
 }
+
 
 
 /*function moveToWaiting(i){
