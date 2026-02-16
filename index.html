@@ -1263,10 +1263,9 @@ async function redo(){
   if(index === -1 || index >= versions.length-1) return;
 
   const next = versions[index+1];
-  const nextPointer = versions[index];
 
   await stateRef.set(next[1].state);
-  await metaRef.child("undo_pointer").set(nextPointer[0]);
+  await metaRef.child("undo_pointer").set(next[0]);
 }
 
 async function trimVersions(limit=20){
