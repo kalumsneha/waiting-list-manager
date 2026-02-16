@@ -475,6 +475,7 @@ async function clearCourt(){
 
     state.waiting = [];
     state.incourt = [];
+    state.manualOrder = {};
 
     Object.values(state.stats).forEach(p=>{
       p.games = 0;
@@ -1061,6 +1062,7 @@ async function removeFromSession(name){
     
     state.waiting = state.waiting.filter(n=>n!==name);
     state.incourt = state.incourt.filter(p=>p.name!==name);
+    if(state.manualOrder) delete state.manualOrder[name];
 
     return state;
   });
