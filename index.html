@@ -344,7 +344,8 @@ function normalizeState(s){
     waiting: Array.isArray(s.waiting) ? s.waiting : [],
     incourt: Array.isArray(s.incourt) ? s.incourt : [],
     maxInCourt: (s.maxInCourt === undefined ? null : s.maxInCourt),
-    stats: (typeof s.stats === 'object' && s.stats !== null ? s.stats : {})
+    stats: (typeof s.stats === 'object' && s.stats !== null ? s.stats : {}),
+    manualOrder: Array.isArray(s.manualOrder) ? s.manualOrder : []
   };
 }
 
@@ -608,12 +609,26 @@ function render(){
 
 }
 
-function getPrioritizedWaitingList(){
+/*function getPrioritizedWaitingList(){
   return state.waiting
     .map((n,i)=>({n,g:state.stats[n].games,i}))
     .sort((a,b)=>a.g-b.g||a.i-b.i)
     .map(x=>x.n);
+}*/
+
+function getPrioritizedWaitingList() {
+  const manual = state.manualOrder || [];
+  const remaining = state.waiting.filter(n => !manual.includes(n));
+
+  // sort remaining by games/FIFO
+  const sorted = remaining
+    .map((n,i)=>({n,g:state.stats[n].games,i}))
+    .sort((a,b)=>a.g - b.g || a.i - b.i)
+    .map(x=>x.n);
+
+  return [...manual, ...sorted];
 }
+
 
 /*function moveToInCourtByName(name){
   if(state.maxInCourt && state.incourt.length>=state.maxInCourt) return;
@@ -658,6 +673,11 @@ async function moveToInCourtByName(name){
     state.stats[name].games = (state.stats[name].games || 0) + 1;
 
     state.incourt.push({name, extraUsed:false});
+
+    // remove from manual order once player is in court
+    if(state.manualOrder) {
+      state.manualOrder = state.manualOrder.filter(n=>n!==name);
+    }
 
     return state;
   });
@@ -1051,7 +1071,7 @@ document.addEventListener('click',closeMenus);
   save();
 }*/
 
-async function moveUpWaiting(name){
+/*async function moveUpWaiting(name){
   await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
@@ -1065,6 +1085,30 @@ async function moveUpWaiting(name){
 
     return state;
   });
+}*/
+
+async function moveUpWaiting(name) {
+  await saveVersion();
+  stateRef.transaction(state => {
+    if(!state) return state;
+    state = normalizeState(state);
+
+    state.manualOrder = state.manualOrder || [];
+    const i = state.manualOrder.indexOf(name);
+
+    if(i === -1) {
+      // first time moving manually, add to manualOrder
+      state.manualOrder.push(name);
+      return state;
+    }
+
+    if(i > 0) {
+      [state.manualOrder[i-1], state.manualOrder[i]] =
+      [state.manualOrder[i], state.manualOrder[i-1]];
+    }
+
+    return state;
+  });
 }
 
 
@@ -1075,7 +1119,7 @@ async function moveUpWaiting(name){
   save();
 }*/
 
-async function moveDownWaiting(name){
+/*async function moveDownWaiting(name){
   await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
@@ -1087,6 +1131,24 @@ async function moveDownWaiting(name){
     const arr=state.waiting;
 
     [arr[i],arr[i+1]]=[arr[i+1],arr[i]];
+
+    return state;
+  });
+}*/
+
+async function moveDownWaiting(name) {
+  await saveVersion();
+  stateRef.transaction(state => {
+    if(!state) return state;
+    state = normalizeState(state);
+
+    state.manualOrder = state.manualOrder || [];
+    const i = state.manualOrder.indexOf(name);
+    if(i === -1) return; // not in manualOrder yet
+    if(i < state.manualOrder.length - 1) {
+      [state.manualOrder[i], state.manualOrder[i+1]] =
+      [state.manualOrder[i+1], state.manualOrder[i]];
+    }
 
     return state;
   });
