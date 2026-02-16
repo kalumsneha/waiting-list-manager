@@ -1260,12 +1260,13 @@ async function redo(){
   const pointer = metaSnap.val();
 
   const index = versions.findIndex(v=>v[0]===pointer);
-  if(index === -1 || index >= versions.length-1) return;
-
-  const next = versions[index+1];
+  if(index === -1 || index >= versions.length-2) return;
+  
+  const nextPointer = versions[index+1];
+  const next = versions[index+2];
 
   await stateRef.set(next[1].state);
-  await metaRef.child("undo_pointer").set(next[0]);
+  await metaRef.child("undo_pointer").set(nextPointer[0]);
 }
 
 async function trimVersions(limit=20){
