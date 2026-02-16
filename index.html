@@ -1181,6 +1181,11 @@ function undoLastAction(){
 }
 
 function rebuildStateFromActions(){
+  if(!state.stats || Object.keys(state.stats).length === 0){
+    console.error("ABORT REBUILD: stats empty — preventing wipe");
+    return;
+  }
+
   actionsRef.once("value").then(snap=>{
     let actions = [];
     if(snap.exists()){
@@ -1191,7 +1196,7 @@ function rebuildStateFromActions(){
       waiting:[],
       incourt:[],
       maxInCourt: state.maxInCourt ||null,
-      stats:{}
+      stats: JSON.parse(JSON.stringify(state.stats))
     };
 
     actions.forEach(a=>{
@@ -1221,7 +1226,9 @@ function rebuildStateFromActions(){
           break;
 
         case "EDIT_GAMES":
-          newState.stats[a.name].games = a.value;
+          if(newState.stats[a.name]){
+            newState.stats[a.name].games = a.value;
+          }
           break;
 
         case "REMOVE":
