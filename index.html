@@ -691,18 +691,21 @@ async function moveToInCourtByName(name){
     state.incourt.push({name, extraUsed:false});
 
   
-    // adjust manualOrder
     if(state.manualOrder){
       // remove this player if it was manual
       delete state.manualOrder[name];
-
-      // decrement index for all manual players below the removed player's position
+    
+      // get a snapshot of current waiting list BEFORE removal
+      const waitingBefore = [...state.waiting];
+      
       Object.keys(state.manualOrder).forEach(n=>{
-        if(state.manualOrder[n] > i){
-          state.manualOrder[n] = state.manualOrder[n] - 1;
+        const idxInWaiting = waitingBefore.indexOf(n);
+        if(idxInWaiting > i){
+          state.manualOrder[n] = Math.max(0, state.manualOrder[n] - 1);
         }
       });
     }
+
 
     return state;
   });
