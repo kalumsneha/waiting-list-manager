@@ -245,7 +245,9 @@ button:hover{background:#125aa0}
 <input type="text" id="nameInput" placeholder="Enter new names (comma separated)" />
 <button onclick="addSelectedOrNewPlayers()">Add Players</button>
 <button onclick="clearCourt()">Clear Court</button>
-<button onclick="undoLastAction()">↩ Undo</button>
+<button onclick="undo()">↩ Undo</button>
+<button onclick="redo()">↪ Redo</button>
+
 </div>
 
 <div class="container">
@@ -309,7 +311,9 @@ button:hover{background:#125aa0}
 firebase.initializeApp(window.FIREBASE_CONFIG);
 const db = firebase.database();
 const stateRef = db.ref("fifoState");
-const actionsRef = db.ref("fifoActions");
+const versionsRef = db.ref("state_versions");
+const metaRef = db.ref("meta");
+
 </script>
 
 <script>
@@ -626,7 +630,8 @@ function getPrioritizedWaitingList(){
   save();
 }*/
 
-function moveToInCourtByName(name){
+async function moveToInCourtByName(name){
+  await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
 
@@ -652,15 +657,6 @@ function moveToInCourtByName(name){
     state.incourt.push({name, extraUsed:false});
 
     return state;
-  }, ()=>{
-    // log AFTER success
-    logAction({
-      type:"MOVE_TO_COURT",
-      name,
-      ts: Date.now(),
-      session: "default"
-    });
-
   });
 }
 
@@ -699,7 +695,8 @@ function moveToInCourtByName(name){
   });
 }*/
 
-function moveToWaiting(name){
+async function moveToWaiting(name){
+  await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
@@ -718,14 +715,6 @@ function moveToWaiting(name){
     state.waiting.push(p.name);
 
     return state;
-  }, ()=>{
-    // log AFTER success
-    logAction({
-      type:"MOVE_TO_WAITING",
-      name,
-      ts: Date.now(),
-      session: "default"
-    });
   });
 }
 
@@ -771,7 +760,8 @@ function moveToWaiting(name){
   });
 }*/
 
-function stayOneMore(name){
+async function stayOneMore(name){
+  await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
@@ -792,14 +782,6 @@ function stayOneMore(name){
     }
 
     return state;
-  }, ()=>{
-    // log AFTER success
-    logAction({
-      type:"STAY",
-      name,
-      ts: Date.now(),
-      session: "default"
-    });
   });
 }
 
@@ -1028,7 +1010,8 @@ function addNewPlayer(){
   save();
 }*/
 
-function removeFromSession(name){
+async function removeFromSession(name){
+  await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
@@ -1044,14 +1027,6 @@ function removeFromSession(name){
     state.incourt = state.incourt.filter(p=>p.name!==name);
 
     return state;
-  }, ()=>{
-    // log AFTER success
-    logAction({
-      type:"REMOVE",
-      name,
-      ts: Date.now(),
-      session: "default"
-    });
   });
 }
 
@@ -1073,7 +1048,8 @@ document.addEventListener('click',closeMenus);
   save();
 }*/
 
-function moveUpWaiting(i){
+async function moveUpWaiting(i){
+  await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
@@ -1095,7 +1071,8 @@ function moveUpWaiting(i){
   save();
 }*/
 
-function moveDownWaiting(i){
+async function moveDownWaiting(i){
+  await saveVersion();
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
@@ -1121,13 +1098,15 @@ function moveDownWaiting(i){
   save();
 }*/
 
-function editGameCount(name){
+async function editGameCount(name){
   const current = state.stats[name]?.games || 0;
   const v = prompt(`Edit game count for ${name}:`, current);
   if(v===null) return;
   const num = parseInt(v);
   if(isNaN(num) || num<0) return alert("Invalid number");
 
+  await saveVersion();
+  
   stateRef.transaction(state=>{
     if(!state) return state;
     state = normalizeState(state);
@@ -1137,26 +1116,17 @@ function editGameCount(name){
     }
 
     return state;
-  }, ()=>{
-    // log AFTER success
-    logAction({
-      type:"EDIT_GAMES",
-      name,
-      ts: Date.now(),
-      session: "default",
-      value: num
-    });
   });
 }
 
 /* ================= Global Distributed Undo Option================= */
 
-function logAction(action){
+/*function logAction(action){
   actionsRef.push({
     ...action,
     timestamp: Date.now()
   });
-}
+}*/
 
 /*function undoLastAction(){
   if(actionHistory.length === 0) return;
@@ -1167,7 +1137,7 @@ function logAction(action){
   save();
 }*/
   
-function undoLastAction(){
+/*function undoLastAction(){
   actionsRef.orderByChild("timestamp").limitToLast(1).once("value", snap=>{
     if(!snap.exists()) return;
 
@@ -1240,7 +1210,78 @@ function rebuildStateFromActions(){
 
     stateRef.set(newState);
   });
+}*/
+
+/* ================= SNAPSHOT VERSION SYSTEM ================= */
+
+async function saveVersion(){
+  const snap = await stateRef.once("value");
+  if(!snap.exists()) return;
+
+  const currentState = snap.val();
+
+  const newVersion = versionsRef.push({
+    timestamp: Date.now(),
+    state: JSON.parse(JSON.stringify(currentState))
+  });
+
+  await metaRef.child("undo_pointer").set(newVersion.key);
+  trimVersions(50); // keep last 50 states
 }
+
+async function undo(){
+  const versionsSnap = await versionsRef.once("value");
+  if(!versionsSnap.exists()) return;
+
+  const versions = Object.entries(versionsSnap.val())
+    .sort((a,b)=>a[1].timestamp - b[1].timestamp);
+
+  const metaSnap = await metaRef.child("undo_pointer").once("value");
+  const pointer = metaSnap.val();
+
+  const index = versions.findIndex(v=>v[0]===pointer);
+  if(index <= 0) return;
+
+  const prev = versions[index-1];
+
+  await stateRef.set(prev[1].state);
+  await metaRef.child("undo_pointer").set(prev[0]);
+}
+
+async function redo(){
+  const versionsSnap = await versionsRef.once("value");
+  if(!versionsSnap.exists()) return;
+
+  const versions = Object.entries(versionsSnap.val())
+    .sort((a,b)=>a[1].timestamp - b[1].timestamp);
+
+  const metaSnap = await metaRef.child("undo_pointer").once("value");
+  const pointer = metaSnap.val();
+
+  const index = versions.findIndex(v=>v[0]===pointer);
+  if(index === -1 || index >= versions.length-1) return;
+
+  const next = versions[index+1];
+
+  await stateRef.set(next[1].state);
+  await metaRef.child("undo_pointer").set(next[0]);
+}
+
+async function trimVersions(limit=20){
+  const snap = await versionsRef.once("value");
+  if(!snap.exists()) return;
+
+  const entries = Object.entries(snap.val())
+    .sort((a,b)=>a[1].timestamp - b[1].timestamp);
+
+  const excess = entries.length - limit;
+  if(excess > 0){
+    for(let i=0;i<excess;i++){
+      await versionsRef.child(entries[i][0]).remove();
+    }
+  }
+}
+
 
 
 
