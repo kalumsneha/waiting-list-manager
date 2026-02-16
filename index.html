@@ -1101,7 +1101,8 @@ async function moveDownWaiting(i){
   save();
 }*/
 
-function editGameCount(name){
+async function editGameCount(name){
+  await saveVersion();
   const current = state.stats[name]?.games || 0;
   const v = prompt(`Edit game count for ${name}:`, current);
   if(v===null) return;
@@ -1117,8 +1118,6 @@ function editGameCount(name){
     }
 
     return state;
-  }, async ()=>{
-    await saveVersion();
   });
 }
 
